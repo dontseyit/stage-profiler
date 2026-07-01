@@ -26,8 +26,8 @@ line = profile.render(bare=True, fill=False, auto_y=True)    # transparent line 
 ## Install
 
 ```bash
-pip install stage-profiler          # from a package index
-# or, from a checkout:
+git clone https://github.com/dontseyit/stage-profiler.git
+cd stage-profiler
 pip install -e .
 ```
 
