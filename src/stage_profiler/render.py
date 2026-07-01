@@ -15,6 +15,13 @@ import math
 from dataclasses import dataclass
 from xml.sax.saxutils import escape
 
+_ATTR_ESCAPE = {'"': "&quot;", "'": "&#39;"}
+
+
+def _attr(v: str) -> str:
+    """Escape a string for safe interpolation into an SVG attribute value."""
+    return escape(v, _ATTR_ESCAPE)
+
 from .geometry import Series, moving_average, nice_tick_step, slope_at
 from .ramp import grad_color
 
@@ -270,8 +277,8 @@ def _defs(options: RenderOptions, ds: "list[float]", elevations: "list[float]", 
     else:
         grad = (
             '<linearGradient id="accentFill" x1="0" y1="0" x2="0" y2="1">'
-            f'<stop offset="0" stop-color="{options.color}" stop-opacity="0.55"/>'
-            f'<stop offset="1" stop-color="{options.color}" stop-opacity="0.04"/>'
+            f'<stop offset="0" stop-color="{_attr(options.color)}" stop-opacity="0.55"/>'
+            f'<stop offset="1" stop-color="{_attr(options.color)}" stop-opacity="0.04"/>'
             "</linearGradient>"
         )
     return f"<defs>{grad}</defs>"
@@ -281,6 +288,8 @@ def _y_bounds(series: Series, opts: RenderOptions) -> "tuple[float, float]":
     if opts.auto_y:
         return auto_y_range(series.metrics.min_ele_m, series.metrics.max_ele_m, series.metrics.total_distance_m)
     if opts.y_min is not None and opts.y_max is not None:
+        if opts.y_max <= opts.y_min:
+            raise ValueError(f"y_max ({opts.y_max}) must be greater than y_min ({opts.y_min}).")
         return opts.y_min, opts.y_max
     y_min = math.floor(series.metrics.min_ele_m)
     y_max = math.ceil(series.metrics.max_ele_m)
@@ -296,6 +305,7 @@ def render_svg(series: Series, name: str = "ROUTE", options: "RenderOptions | No
 
     width, height = opts.width, opts.height
     bare = opts.bare
+    color = _attr(opts.color)
 
     top, right, bottom, left = (0.0, 0.0, 0.0, 0.0) if bare else (
         opts.margin_top, opts.margin_right, opts.margin_bottom, opts.margin_left
@@ -327,9 +337,9 @@ def render_svg(series: Series, name: str = "ROUTE", options: "RenderOptions | No
     # Header band
     if not bare and opts.header != "none":
         if opts.header == "minimal":
-            body.append(_minimal_header(series, name, width, left, right, top, opts.color))
+            body.append(_minimal_header(series, name, width, left, right, top, color))
         else:
-            body.append(_full_header(series, name, width, left, right, opts.color))
+            body.append(_full_header(series, name, width, left, right, color))
 
     # Y tick labels
     if not bare:
@@ -354,7 +364,7 @@ def render_svg(series: Series, name: str = "ROUTE", options: "RenderOptions | No
     if opts.gradient_shading:
         stroke = "rgba(245,242,232,0.92)" if opts.fill else "url(#steepFill)"
     else:
-        stroke = opts.color
+        stroke = color
     stroke_w = opts.stroke_grad if (opts.gradient_shading and opts.fill) else opts.stroke_solid
     body.append(
         f'<path class="sp-line" d="{d_attr}" fill="none" stroke="{stroke}" '
