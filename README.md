@@ -1,25 +1,45 @@
 # stage-profiler
 
-Turn a `.gpx` route into a **stage-profile SVG** — and the route **metrics** to go with
-it. Pure Python, **zero runtime dependencies** (stdlib only). Everything is configured
-through a single `RenderOptions` — there are no baked-in presets, so you compose the
-exact look you want.
+A roadbook toolkit with two visuals that share **one baked-in design language** — a
+segmented steepness-band **stage profile** and a soft **stage map**, both driven by data
+(no styling options):
+
+- **`StageProfile`** — turn a `.gpx` route into a **stage-profile SVG**, styled like a Tour
+  roadbook: the elevation line in ink over the area painted in a single green at three
+  steepness opacities, named climbs labelled over their summits (with leaders), start and
+  finish **corner blocks** (town · elevation · a green start flag / checkered finish flag),
+  and the distance along the foot (`0 … total km`). No axes, no header.
+- **`StageMap`** — turn a country **GeoJSON** into a **stage-map SVG**: the outline
+  simplified into soft land, with a hollow-green **start** ring and a solid-green **finish**
+  dot, each labelled with its town + elevation.
 
 ```python
-from stage_profiler import StageProfile, RenderOptions
+from stage_profiler import StageProfile, Climb
 
-profile = StageProfile.from_file("stage-1.gpx")
-
-print(profile.metrics.to_dict())
-# {'total_distance_m': 158145.8, 'total_distance_km': 158.1, 'ascent_m': 1395.0,
-#  'descent_m': 1784.0, 'min_ele_m': 148.0, 'max_ele_m': 594.0, 'max_gradient_pct': 13.9}
-
-svg = profile.render()                                       # 1280×520, full header
-thumb = profile.render(RenderOptions(width=320, height=240, header="minimal"))
-line = profile.render(bare=True, fill=False, auto_y=True)    # transparent line only
+profile = StageProfile.from_file(
+    "stage.gpx",
+    start_town="Tirano", finish_town="Bormio",
+    climbs=[Climb("Mortirolo", 55), Climb("Foscagno", 140)],   # name + summit km
+)
+print(profile.metrics.to_dict())      # {'total_distance_km': 182.2, 'ascent_m': ..., ...}
+svg = profile.render()                 # 840×300, transparent
 ```
 
-`render()` returns a self-contained SVG **string** — cache it, inline it, or serve it.
+```python
+from stage_profiler import StageMap
+
+smap = StageMap.from_file(
+    "ita.geojson",
+    start=(10.17, 46.22), end=(10.37, 46.47),
+    start_label="Tirano", end_label="Bormio",
+    start_ele=profile.start_ele, finish_ele=profile.finish_ele,
+)
+map_svg = smap.render()                # 460×220, transparent
+```
+
+Both `render()` calls return a self-contained SVG **string** — cache it, inline it, or serve
+it. The two visuals stay in sync because the whole look lives in one place
+([`theme.py`](src/stage_profiler/theme.py)); callers only supply data.
 
 ---
 
@@ -31,7 +51,8 @@ cd stage-profiler
 pip install -e .
 ```
 
-Requires Python 3.9+.
+Requires Python 3.9+. Installing pulls in **shapely** and **pyproj** (used by `StageMap`);
+`StageProfile` itself stays stdlib-only.
 
 ---
 
@@ -39,81 +60,111 @@ Requires Python 3.9+.
 
 ### `StageProfile`
 
+| Method / property | Description |
+| --- | --- |
+| `StageProfile.from_file(path, *, name=None, start_town="", finish_town="", climbs=())` | Parse a `.gpx` file. |
+| `StageProfile.from_gpx(text, *, ...)` | Parse GPX XML already in memory. Same keywords. |
+| `.metrics` | A `RouteMetrics` (`total_distance_km`, `ascent_m`, `max_gradient_pct`, …). |
+| `.start_ele` / `.finish_ele` | The route's first / last elevation (m) — used for the end labels. |
+| `.render()` | Return the SVG string. No arguments — the look is fixed. |
+
+`climbs` is a sequence of `Climb(name, km)`, each labelled over the summit nearest that
+kilometre. `start_town` / `finish_town` are the labels at the ends (their elevations come
+from the GPX). `name` is kept for filenames/reporting; it is **not** drawn.
+
+### `StageMap`
+
 | Method | Description |
 | --- | --- |
-| `StageProfile.from_file(path, *, name=None)` | Parse a `.gpx` file. Title falls back to the GPX `<name>` tag, then the filename. |
-| `StageProfile.from_gpx(text, *, name=None)` | Parse GPX XML already in memory. |
-| `.metrics` | A `RouteMetrics` (see below). |
-| `.render(options=None, **overrides)` | Return an SVG string. Pass an `options=RenderOptions(...)` **or** keyword overrides. |
+| `StageMap.from_file(path, *, start, end, start_label="", end_label="", start_ele=None, finish_ele=None, name=None)` | Parse a `.geojson`. `start`/`end` are `(lon, lat)`. |
+| `StageMap.from_geojson(geojson, *, ...)` | Same, from a dict, JSON string, or path in memory. |
+| `.render()` | Return the SVG string. No arguments. |
 
-### `RouteMetrics`
+Any FeatureCollection / Feature / (Multi)Polygon works. `start_ele` / `finish_ele` (metres)
+are shown in the `START · …M` / `FINISH · …M` labels; pass `profile.start_ele` /
+`profile.finish_ele` to keep the two visuals consistent.
 
-Everything you'd persist per route: `total_distance_m`, `total_distance_km`, `ascent_m`,
-`descent_m`, `min_ele_m`, `max_ele_m`, `max_gradient_pct` — plus `.to_dict()` for JSON.
-Max gradient is the **maximum sustained** gradient over a ~100 m rolling window, so GPS
-spikes don't lie.
-
-### `RenderOptions`
-
-| Field | Default | Effect |
-| --- | --- | --- |
-| `width` / `height` | `1280` / `520` | Canvas size (the exported / `viewBox` size). |
-| `margin_top/right/bottom/left` | `116/36/48/58` | Plot inset. Give the header room in `margin_top`. |
-| `header` | `"full"` | `"full"` (kicker + title + stat blocks), `"minimal"` (one line), or `"none"`. `"full"` suits `margin_top ≈ 116`, `"minimal" ≈ 34`. |
-| `axis_size` / `tick_gap` / `x_tick_dy` / `x_ticks` | `12 / 10 / 22 / 8` | Axis-label type and tick spacing. |
-| `color` | `#c8f135` | Accent (line + solid fill). |
-| `gradient_shading` | `True` | Colour the fill by climb steepness; `False` = solid accent fill. |
-| `fill` | `True` | Shade the area under the line; `False` = **line only** (the line carries the colour). |
-| `stroke_grad` / `stroke_solid` | `1.6 / 2.4` | Line widths for shaded vs solid / line-only. |
-| `smoothing` | `0` | Moving-average radius (points) on the drawn line only; metrics stay from raw data. |
-| `background` | `True` | Draw the dark backdrop, or `False` for a transparent canvas (keeping chrome). |
-| `bare` | `False` | **Profile only** — no header/axes/labels/background; silhouette bleeds edge-to-edge. |
-| `auto_y` | `False` | **Cross-compatible axis** (see below). Takes precedence over `y_min`/`y_max`. |
-| `y_min` / `y_max` | `None` | Pin the altitude axis (both required); otherwise auto-fit tight to the data. |
-
-The altitude axis has three modes, in priority order: `auto_y` → manual `y_min`/`y_max` →
-tight auto-fit. **`auto_y`** keeps profiles visually comparable across routes: the floor
-sits just below the route's lowest point, and the top is the larger of a standardised
-minimum ceiling (500 m, or 2000 m for routes over 100 km) and `peak + headroom` — so flat
-routes stay pinned to a common frame while real climbs always breathe above the peak.
-The thresholds are the `AUTO_Y_*` module constants in `render.py`.
-
-### Composing the low-level pieces
-
-```python
-from stage_profiler import parse_gpx, build_series, render_svg, RenderOptions
-
-series = build_series(parse_gpx(gpx_text))
-svg = render_svg(series, name="ALPE D'HUEZ",
-                 options=RenderOptions(width=320, height=240, header="minimal", auto_y=True))
-```
+The low-level `render_profile_svg(series, *, start_town, finish_town, climbs)` and
+`render_map_svg(rings, start, end, name)` are exported too, if you already have a `Series`
+or flattened rings.
 
 ---
 
 ## CLI
 
 ```bash
-stage-profiler route.gpx -o profile.svg                          # 1280×520 full header
-stage-profiler route.gpx --width 320 --height 240 --header minimal --metrics
-stage-profiler route.gpx --bare --no-fill --auto-y -o line.svg   # transparent line only
-cat route.gpx | stage-profiler - -c '#ff5a4d'                    # read from stdin
+# profile — from a GPX route
+stage-profiler profile stage.gpx \
+  --start-town Tirano --finish-town Bormio \
+  --climb "Mortirolo:55" --climb "Foscagno:140" -o profile.svg
+cat stage.gpx | stage-profiler profile - --metrics > profile.svg   # read from stdin
+
+# map — from a country GeoJSON
+stage-profiler map ita.geojson --start 10.17 46.22 --end 10.37 46.47 \
+  --start-town Tirano --finish-town Bormio --start-ele 440 --finish-ele 1225 -o map.svg
 ```
 
-Flags: `--width`, `--height`, `--header {full,minimal,none}`, `--color`, `--name`,
-`--no-gradient`, `--no-fill`, `--no-background`, `--bare`, `--smoothing N`, `--auto-y`,
-`--y-min`, `--y-max`, `--metrics`.
+`profile` flags: `--start-town`, `--finish-town`, `--climb NAME:KM` (repeatable), `--name`,
+`--metrics`. `map` flags: `--start LON LAT`, `--end LON LAT`, `--start-town`,
+`--finish-town`, `--start-ele`, `--finish-ele`, `--name`.
+
+---
+
+## Batch roadbook
+
+[`scripts/generate_roadbook.py`](scripts/generate_roadbook.py) turns a set of races into
+posters in one pass. Point it at a **manifest** (JSON) — or a folder of `.gpx` files — and
+it writes `{stem}-profile` and `{stem}-map` per race, each as an **SVG and a matching PNG**.
+
+PNG rasterisation uses `rsvg-convert` (`brew install librsvg`); without it the script writes
+SVG only. Pass `--no-png` to skip PNGs, or `--scale N` to change their resolution (default 2×).
+
+```bash
+python scripts/generate_roadbook.py races.example.json          # → build/
+python scripts/generate_roadbook.py path/to/gpx-folder/         # a profile for every .gpx
+```
+
+The manifest lists races; every path resolves relative to the manifest file:
+
+```json
+{
+  "output_dir": "build",
+  "races": [
+    {
+      "gpx": "stage-4-course.gpx",
+      "name": "Carcassonne — Foix",
+      "start_town": "Carcassonne",
+      "finish_town": "Foix",
+      "climbs": [
+        { "name": "Port de Lers", "km": 118 },
+        { "name": "Mur de Péguère", "km": 147 }
+      ],
+      "map": {
+        "geojson": "fra.geojson",
+        "start": [2.4362, 43.2006],
+        "end":   [1.6075, 42.9640]
+      }
+    }
+  ]
+}
+```
+
+`start`/`end` are optional (they fall back to the GPX endpoints); omit `map` for a
+profile-only race. A race that fails is logged and skipped so the rest still render.
 
 ---
 
 ## Fonts & theming
 
 **Fonts are referenced, not embedded**, so SVGs stay small. Inline the SVG in a page that
-loads **Bebas Neue** (display) and **Barlow** (body) and the type renders correctly; every
-element carries an `sp-*` class (`sp-line`, `sp-area`, `sp-title`, `sp-tick`, …) for CSS
-theming. If you render an SVG in isolation (e.g. `<img src>`), supply those fonts there.
+loads **Jost** (the single family used across both visuals) and the type renders as designed. Every element carries a class for CSS theming — `sp-*` on the
+profile (`sp-line`, `sp-band`, `sp-climb`, `sp-town`, `sp-start`, `sp-finish`, …) and `sm-*`
+on the map (`sm-land`, `sm-marker`, `sm-label`, …). Profile elements also carry `sp-climb`,
+`sp-leader`, `sp-town`, `sp-ele`, `sp-start`, `sp-finish`, and `sp-dist`.
 
-The steepness colour ramp is the `RAMP` array in
-[`ramp.py`](src/stage_profiler/ramp.py) — `[(gradient%, (r, g, b)), …]`.
+The palette and type live in [`theme.py`](src/stage_profiler/theme.py); the two steepness
+cut points (**4 %** moderate, **8 %** steep) and the three opacities live in
+[`steepness.py`](src/stage_profiler/steepness.py) and `theme.py`. Those are the only knobs.
 
 ---
 
@@ -132,10 +183,14 @@ pytest
 ```
 src/stage_profiler/
   gpx.py        parse GPX → points (namespace-agnostic)
-  geometry.py   distances, metrics, sampled series, smoothing, ticks
-  ramp.py       steepness colour ramp
-  render.py     RenderOptions + SVG string generation
-  profile.py    StageProfile — the high-level entry point
-  cli.py        command-line interface
+  geometry.py   distances, metrics, sampled series, interpolation
+  steepness.py  segment a route into three steepness bands
+  theme.py      the baked-in palette, type, and SVG text helpers
+  render.py     the stage-profile SVG
+  profile.py    StageProfile + Climb — the profile entry point
+  map.py        StageMap — the map entry point (shapely + pyproj)
+  cli.py        command-line interface (profile / map subcommands)
+scripts/
+  generate_roadbook.py   batch profile + map posters from a manifest or GPX folder
 tests/          pytest suite
 ```

@@ -1,0 +1,27 @@
+{
+  "output_dir": "build",
+  "races": [
+    {
+      "gpx": "stage-4-course.gpx",
+      "name": "Carcassonne — Foix",
+      "start_town": "Carcassonne",
+      "finish_town": "Foix",
+      "climbs": [
+        { "name": "Col de Coudons", "km": 104.9 },
+        { "name": "Col de Montsegur", "km": 146.7 }
+      ],
+      "map": {
+        "geojson": "fra.geojson",
+        "start": [2.4362, 43.2006],
+        "end": [1.6075, 42.9640]
+      }
+    },
+    {
+      "gpx": "stage-5-course.gpx",
+      "name": "Lannemezan — Pau",
+      "start_town": "Lannemezan",
+      "finish_town": "Pau",
+      "climbs": []
+    }
+  ]
+}

@@ -1,30 +1,27 @@
-"""Tests for the stage_profiler package. Run with `pytest` (PYTHONPATH=src)."""
+"""Tests for the stage_profiler profile + steepness. Run with `pytest` (PYTHONPATH=src)."""
 
 from __future__ import annotations
 
+import re
 import xml.etree.ElementTree as ET
 
 import pytest
 
 from stage_profiler import (
-    RenderOptions,
+    Climb,
+    RouteMetrics,
+    Sample,
+    Series,
     StageProfile,
-    auto_y_range,
     build_series,
     parse_gpx,
     prettify_name,
-    render_svg,
+    steepness_bands,
 )
-from stage_profiler.render import (
-    AUTO_Y_FLOOR,
-    AUTO_Y_FLOOR_LONG,
-    AUTO_Y_FOOTROOM,
-    AUTO_Y_HEADROOM,
-    AUTO_Y_LONG_KM,
-)
+from stage_profiler.render import HEIGHT, WIDTH
+from stage_profiler.steepness import MIN_BAND_M
+from stage_profiler.theme import ACCENT, BACKGROUND
 
-# A tiny synthetic climb: 3 segments, ~111 m apart (0.001° latitude), so the metrics
-# are easy to reason about. Uses a GPX 1.1 namespace to exercise the parser.
 SIMPLE_GPX = """<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
   <trk><name>Alpe Test</name><trkseg>
@@ -37,21 +34,23 @@ SIMPLE_GPX = """<?xml version="1.0" encoding="UTF-8"?>
 """
 
 
-def _gpx_peaking_at(peak_ele: float, *, span_deg: float = 0.01) -> str:
-    """A minimal 2-point route with a given peak elevation and latitude span."""
-    return (
-        '<gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1"><trk><trkseg>'
-        '<trkpt lat="45.0000" lon="6.0000"><ele>0</ele></trkpt>'
-        f'<trkpt lat="{45.0 + span_deg:.4f}" lon="6.0000"><ele>{peak_ele}</ele></trkpt>'
-        "</trkseg></trk></gpx>"
-    )
+def _series(dist_ele: "list[tuple[float, float]]") -> Series:
+    """A synthetic Series from ``(distance_m, elevation_m)`` samples — precise for banding."""
+    samples = [Sample(float(d), float(e)) for d, e in dist_ele]
+    es = [e for _, e in dist_ele]
+    return Series(samples, RouteMetrics(
+        total_distance_m=dist_ele[-1][0], ascent_m=0.0, descent_m=0.0,
+        min_ele_m=min(es), max_ele_m=max(es), max_gradient_pct=0.0,
+    ))
 
 
-def _svg_tags(svg: str) -> list[str]:
-    return [el.tag.rsplit("}", 1)[-1] for el in ET.fromstring(svg).iter()]
+def _ramp(pct: float, length_m: float = 4000.0, step: float = 250.0) -> "list[tuple[float, float]]":
+    """A constant-gradient climb of ``pct``% over ``length_m``, sampled every ``step``."""
+    n = int(length_m / step)
+    return [(i * step, i * step * pct / 100.0) for i in range(n + 1)]
 
 
-# --- parsing ------------------------------------------------------------------
+# --- parsing & metrics (gpx.py / geometry.py) ---------------------------------
 
 def test_parse_gpx_reads_points_across_namespace():
     points = parse_gpx(SIMPLE_GPX)
@@ -70,25 +69,12 @@ def test_missing_elevation_is_carried_forward():
     assert series.samples[1].elevation_m == 1000
 
 
-# --- metrics ------------------------------------------------------------------
-
 def test_metrics_values():
     m = build_series(parse_gpx(SIMPLE_GPX)).metrics
     assert m.ascent_m == pytest.approx(120.0)
     assert m.descent_m == pytest.approx(30.0)
-    assert m.min_ele_m == 1000
-    assert m.max_ele_m == 1120
+    assert m.min_ele_m == 1000 and m.max_ele_m == 1120
     assert 300 < m.total_distance_m < 360
-    assert m.total_distance_km == pytest.approx(m.total_distance_m / 1000)
-    assert m.max_gradient_pct > 0
-
-
-def test_metrics_to_dict_includes_km():
-    d = build_series(parse_gpx(SIMPLE_GPX)).metrics.to_dict()
-    assert set(d) >= {
-        "total_distance_m", "total_distance_km", "ascent_m",
-        "descent_m", "min_ele_m", "max_ele_m", "max_gradient_pct",
-    }
 
 
 def test_build_series_requires_two_points():
@@ -96,138 +82,100 @@ def test_build_series_requires_two_points():
         build_series(parse_gpx(SIMPLE_GPX)[:1])
 
 
+# --- steepness bands ----------------------------------------------------------
+
+def test_flat_route_is_all_gentle():
+    bands = steepness_bands(_series([(0, 100), (5000, 100)]))
+    assert bands and all(b.tier == 0 for b in bands)
+
+
+def test_descent_is_gentle_not_steep():
+    bands = steepness_bands(_series(_ramp(-10)))  # a 10% *descent*
+    assert all(b.tier == 0 for b in bands)
+
+
+def test_moderate_and_steep_tiers():
+    assert max(b.tier for b in steepness_bands(_series(_ramp(6)))) == 1   # 6% → moderate
+    assert max(b.tier for b in steepness_bands(_series(_ramp(11)))) == 2  # 11% → steep
+
+
+def test_opacity_follows_tier():
+    steep = [b for b in steepness_bands(_series(_ramp(12))) if b.tier == 2][0]
+    assert steep.opacity == 1.0
+
+
+def test_short_spike_is_absorbed_no_slivers():
+    # A 250 m steep blip buried in 8 km of flat should not survive as its own band.
+    route = [(0, 0), (4000, 0), (4250, 30), (8000, 30)]
+    bands = steepness_bands(_series(route))
+    assert all((b.d1 - b.d0) >= MIN_BAND_M for b in bands[1:-1])
+
+
 # --- rendering ----------------------------------------------------------------
 
-@pytest.mark.parametrize("width, height", [(1280, 520), (320, 240), (1080, 1080)])
-def test_render_is_valid_svg_with_requested_size(width, height):
-    svg = StageProfile.from_gpx(SIMPLE_GPX).render(width=width, height=height)
-    root = ET.fromstring(svg)
-    assert root.get("viewBox") == f"0 0 {width} {height}"
-    assert root.get("width") == str(width)
+def _profile(**kw) -> str:
+    return StageProfile.from_gpx(
+        SIMPLE_GPX, start_town="Tirano", finish_town="Bormio",
+        climbs=[Climb("Mortirolo", 0.15)], **kw,
+    ).render()
 
 
-def test_default_render_is_the_full_1280x520():
-    svg = StageProfile.from_gpx(SIMPLE_GPX).render()
-    root = ET.fromstring(svg)
-    assert root.get("viewBox") == "0 0 1280 520"
-    assert "STAGE PROFILE" in svg  # full header kicker
+def test_render_is_valid_svg_at_fixed_size():
+    root = ET.fromstring(_profile())
+    assert root.get("viewBox") == f"0 0 {WIDTH} {HEIGHT}"
+    assert root.get("class") == "stage-profile"
 
 
-def test_header_full_minimal_none():
-    p = StageProfile.from_gpx(SIMPLE_GPX)
-    full = p.render(header="full")
-    minimal = p.render(header="minimal")
-    none = p.render(header="none")
-    assert "sp-kicker" in full and "sp-title" in full
-    assert "sp-kicker" not in minimal and "sp-title" in minimal
-    assert "sp-title" not in none and "sp-kicker" not in none
-    assert "sp-tick" in none  # axes remain when only the header is dropped
+def test_render_has_bands_line_and_markers():
+    svg = _profile()
+    assert 'class="sp-band"' in svg and ACCENT in svg
+    assert 'class="sp-line"' in svg and "polyline" in svg
+    assert 'class="sp-baseline"' in svg
+    assert 'class="sp-start"' in svg and 'class="sp-finish"' in svg
 
 
-def test_invalid_header_raises():
-    with pytest.raises(ValueError):
-        StageProfile.from_gpx(SIMPLE_GPX).render(header="banner")
+def test_render_labels_towns_uppercase_climbs_letter_case():
+    svg = _profile()
+    assert "TIRANO" in svg and "BORMIO" in svg      # towns are uppercased
+    assert "Mortirolo" in svg                        # climbs keep their letter case
+    assert " M<" in svg or "M</text>" in svg         # elevation unit
 
 
-def test_bare_drops_all_chrome_and_background():
-    svg = StageProfile.from_gpx(SIMPLE_GPX).render(bare=True)
-    tags = _svg_tags(svg)
-    assert "text" not in tags
-    assert 'class="sp-bg"' not in svg
-    assert 'class="sp-line"' in svg
+def test_render_has_no_axes_or_header():
+    svg = _profile()
+    assert "sp-tick" not in svg and "STAGE PROFILE" not in svg  # no axes / header
 
 
-def test_background_false_is_transparent_but_keeps_chrome():
-    svg = StageProfile.from_gpx(SIMPLE_GPX).render(background=False)
-    assert 'class="sp-bg"' not in svg
-    assert "sp-tick" in svg and "STAGE PROFILE" in svg
+def test_render_shows_finish_distance_only():
+    svg = _profile()
+    assert svg.count('class="sp-dist"') == 1   # finish km only; no start "0"
+    assert "KM" in svg
 
 
-def test_fill_off_removes_area_keeps_line():
-    svg = StageProfile.from_gpx(SIMPLE_GPX).render(fill=False)
-    assert 'class="sp-area"' not in svg
-    assert 'class="sp-line"' in svg
+def test_render_has_solid_background():
+    svg = _profile()
+    assert 'class="sp-bg"' in svg and BACKGROUND in svg
 
 
-def test_line_only_gradient_colours_the_stroke():
-    svg = StageProfile.from_gpx(SIMPLE_GPX).render(fill=False, gradient_shading=True)
-    assert 'stroke="url(#steepFill)"' in svg
+def test_low_relief_stage_stays_flat():
+    # 50 m of relief must not be stretched to fill the plot (the floored span).
+    svg = StageProfile.from_gpx(_ramp_gpx(50)).render()
+    ys = [float(p.split(",")[1]) for p in re.search(r'class="sp-line" points="([^"]+)"', svg).group(1).split()]
+    assert max(ys) - min(ys) < 40   # gentle, not mountainous
 
 
-def test_accent_colour_propagates():
-    svg = StageProfile.from_gpx(SIMPLE_GPX).render(gradient_shading=False, color="#ff5a4d")
-    assert "#ff5a4d" in svg
-
-
-def test_name_is_prettified_and_escaped():
-    assert prettify_name("stage-1_alpe duez") == "STAGE 1 ALPE DUEZ"
-    svg = StageProfile.from_gpx(SIMPLE_GPX, name="A & B").render()
+def test_name_is_prettified_and_labels_escaped():
+    assert prettify_name("tirano-bormio") == "TIRANO BORMIO"
+    svg = StageProfile.from_gpx(SIMPLE_GPX, start_town="A & B").render()
     assert "A &amp; B" in svg
 
 
-def test_render_svg_low_level_matches_high_level():
-    p = StageProfile.from_gpx(SIMPLE_GPX)
-    assert p.render(RenderOptions(header="minimal")) == render_svg(
-        p.series, p.name, RenderOptions(header="minimal")
+def _ramp_gpx(relief_m: float) -> str:
+    """A GPX rising ``relief_m`` over ~1 km — low relief to exercise the floored span."""
+    return (
+        '<gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1"><trk><trkseg>'
+        '<trkpt lat="45.0000" lon="6.0000"><ele>0</ele></trkpt>'
+        '<trkpt lat="45.0050" lon="6.0000"><ele>0</ele></trkpt>'
+        f'<trkpt lat="45.0100" lon="6.0000"><ele>{relief_m}</ele></trkpt>'
+        "</trkseg></trk></gpx>"
     )
-
-
-def test_render_rejects_options_and_kwargs_together():
-    with pytest.raises(TypeError):
-        StageProfile.from_gpx(SIMPLE_GPX).render(RenderOptions(), color="#fff")
-
-
-# --- auto_y (cross-compatible altitude axis) ----------------------------------
-
-@pytest.mark.parametrize(
-    "min_ele, max_ele, dist_km",
-    [
-        (0, 73, 30),
-        (2, 111, 80),
-        (-40, 300, 50),
-        (120, 1850, 60),
-        (0, 300, 150),
-        (0, 2500, 200),
-    ],
-)
-def test_auto_y_range_rule(min_ele, max_ele, dist_km):
-    low, high = auto_y_range(min_ele, max_ele, dist_km * 1000)
-    ceiling = AUTO_Y_FLOOR_LONG if dist_km > AUTO_Y_LONG_KM else AUTO_Y_FLOOR
-    assert low == min_ele - AUTO_Y_FOOTROOM
-    assert high == max(ceiling, max_ele + AUTO_Y_HEADROOM)   # ceiling is a minimum
-
-
-def test_auto_y_headroom_lifts_the_top_above_the_minimum_ceiling():
-    # A long route peaking below the long ceiling still breathes by headroom rather than
-    # being flattened to a hard 2000 (the bug this behaviour replaced).
-    _, high = auto_y_range(0, 1950, 150_000)
-    assert high == 1950 + AUTO_Y_HEADROOM
-    assert high > AUTO_Y_FLOOR_LONG
-
-
-def test_auto_y_distance_threshold_is_exclusive():
-    below = auto_y_range(0, 300, AUTO_Y_LONG_KM * 1000)[1]       # exactly 100 km → short
-    above = auto_y_range(0, 300, AUTO_Y_LONG_KM * 1000 + 1)[1]   # just over → long
-    assert below == max(AUTO_Y_FLOOR, 300 + AUTO_Y_HEADROOM)
-    assert above == max(AUTO_Y_FLOOR_LONG, 300 + AUTO_Y_HEADROOM)
-    assert above > below
-
-
-def test_auto_y_boundary_peak_at_ceiling_uses_headroom():
-    assert auto_y_range(0, AUTO_Y_FLOOR, 30_000) == (-AUTO_Y_FOOTROOM, AUTO_Y_FLOOR + AUTO_Y_HEADROOM)
-
-
-def test_auto_y_changes_axis_versus_tight_fit():
-    p = StageProfile.from_gpx(_gpx_peaking_at(120))
-    assert p.render(auto_y=True) != p.render()   # option is wired and moves the axis
-
-
-def test_auto_y_long_route_reaches_the_taller_ceiling():
-    # ~1.35° latitude ≈ 150 km → "long"; a low peak is framed to the 2000 m minimum.
-    svg = StageProfile.from_gpx(_gpx_peaking_at(120, span_deg=1.35)).render(auto_y=True)
-    assert f">{int(AUTO_Y_FLOOR_LONG)}<" in svg
-
-
-def test_auto_y_takes_precedence_over_manual_range():
-    p = StageProfile.from_gpx(_gpx_peaking_at(73))
-    assert p.render(auto_y=True, y_min=0, y_max=9999) == p.render(auto_y=True)

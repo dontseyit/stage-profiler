@@ -1,17 +1,27 @@
-"""Stage Profiler — turn a GPX route into a stage-profile SVG plus route metrics.
+"""Stage Profiler — a roadbook toolkit that turns a route into a stage-profile SVG and a
+country outline into a stage-map SVG, sharing one baked-in design language.
 
 Quick start::
 
-    from stage_profiler import StageProfile, RenderOptions
+    from stage_profiler import StageProfile, Climb, StageMap
 
-    profile = StageProfile.from_file("route.gpx")
-    print(profile.metrics.to_dict())
+    profile = StageProfile.from_file(
+        "stage.gpx",
+        start_town="Tirano", finish_town="Bormio",
+        climbs=[Climb("Mortirolo", 55), Climb("Foscagno", 140)],
+    )
+    svg = profile.render()
 
-    svg = profile.render(RenderOptions(width=320, height=240, header="minimal"))
-    line_only = profile.render(bare=True, fill=False)   # keyword overrides also work
+    smap = StageMap.from_file(
+        "ita.geojson",
+        start=(10.17, 46.22), end=(10.37, 46.47),
+        start_label="Tirano", end_label="Bormio",
+        start_ele=profile.start_ele, finish_ele=profile.finish_ele,
+    )
+    map_svg = smap.render()
 
-Everything is configured through :class:`RenderOptions` — there are no built-in presets.
-Zero runtime dependencies (stdlib only).
+There are no render options — the look is fixed (see :mod:`stage_profiler.theme`). The profile
+side is stdlib-only; the map (:class:`StageMap`) additionally requires shapely and pyproj.
 """
 
 from __future__ import annotations
@@ -21,36 +31,37 @@ from .geometry import (
     Sample,
     Series,
     build_series,
+    ele_at,
     haversine_m,
-    moving_average,
-    nice_tick_step,
+    slope_at,
 )
 from .gpx import Point, extract_name, parse_gpx
-from .profile import StageProfile, prettify_name
-from .ramp import RAMP, grad_color
-from .render import CHART_BG, DEFAULT_COLOR, RenderOptions, auto_y_range, render_svg
+from .map import Marker, StageMap, render_map_svg
+from .profile import Climb, StageProfile, prettify_name
+from .render import render_profile_svg
+from .steepness import Band, steepness_bands
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 __all__ = [
     "StageProfile",
+    "Climb",
     "prettify_name",
+    "StageMap",
+    "Marker",
+    "render_profile_svg",
+    "render_map_svg",
+    "steepness_bands",
+    "Band",
     "parse_gpx",
     "extract_name",
     "Point",
     "build_series",
+    "ele_at",
+    "slope_at",
     "haversine_m",
-    "moving_average",
-    "nice_tick_step",
     "Sample",
     "Series",
     "RouteMetrics",
-    "render_svg",
-    "RenderOptions",
-    "auto_y_range",
-    "DEFAULT_COLOR",
-    "CHART_BG",
-    "RAMP",
-    "grad_color",
     "__version__",
 ]

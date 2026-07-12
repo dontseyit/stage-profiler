@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; }
+body { margin: 0; background: #D5D3CF; font-family: 'Barlow', sans-serif; }
+.dv-turn { padding: 44px 48px 60px; }
+.dv-thd { display: flex; align-items: baseline; gap: 12px; margin: 0 0 6px; }
+.dv-tid { font: 700 11px 'Barlow Condensed', sans-serif; letter-spacing: 0.06em; padding: 3px 9px; background: #1A1917; color: #FAFAF8; border-radius: 5px; text-decoration: none; }
+.dv-tname { font: 600 14px 'Barlow', sans-serif; color: #1A1917; }
+.dv-sub { font-size: 12.5px; color: #6b6560; margin: 0 0 26px; max-width: 640px; line-height: 1.55; }
+.dv-opts { display: flex; flex-direction: column; gap: 36px; align-items: flex-start; }
+.dv-opt { flex: none; display: flex; flex-direction: column; gap: 10px; scroll-margin-top: 16px; width: 900px; }
+.dv-oid { font: 700 10.5px 'Barlow Condensed', sans-serif; letter-spacing: 0.06em; padding: 3px 8px; background: rgba(26,25,23,0.09); color: #1A1917; border-radius: 5px; text-decoration: none; }
+.dv-olabel { display: flex; align-items: baseline; gap: 8px; font-size: 11.5px; line-height: 1.4; color: #6b6560; }
+.dv-card { background: #FAFAF8; border-radius: 18px; box-shadow: 0 3px 26px rgba(0,0,0,0.12); overflow: hidden; }
+.dv-opt:target .dv-oid { background: #16A34A; color: #fff; }
+.dv-next { margin: 30px 0 0; font-size: 12px; line-height: 1.6; color: #6b6560; max-width: 640px; }
+</style>
+</helmet>
+
+<section class="dv-turn" id="t1">
+  <div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">Route profile + map overlay — Race Detail screen</span></div>
+
+  <div class="dv-opts">
+
+    <!-- ══════════════════ OPTION 1d — WINNER ══════════════════ -->
+    <div class="dv-opt" id="1d">
+      <div class="dv-olabel"><a class="dv-oid" href="#1d">1d</a>Segmented steepness-band profile · simplified geography map <span style="font-weight:700; color:#16A34A;">— selected</span></div>
+      <div class="dv-card" style="box-shadow:0 3px 26px rgba(0,0,0,0.12), 0 0 0 2px #16A34A;">
+
+        <div style="display:grid; grid-template-columns:1.3fr 1fr; gap:26px; padding:22px; align-items:stretch;">
+          <div style="display:flex; flex-direction:column;">
+            <div style="font-family:'Barlow Condensed',sans-serif; font-size:9.5px; font-weight:700; color:#95908A; letter-spacing:0.14em; text-transform:uppercase; margin-bottom:12px;">ROUTE PROFILE</div>
+            <svg viewBox="0 0 840 300" width="100%" height="210" preserveAspectRatio="xMidYMax meet" style="display:block; flex:1;">
+              <defs>
+                <clipPath id="clip1d">
+                  <path d="M24,256 L24,236 L72,233 L121,218 L169,192 L218,154 L242,115 L291,154 L339,192 L388,209 L436,201 L485,171 L533,124 L557,77 L606,111 L654,145 L703,154 L751,162 L790,167 L816,169 L816,256 Z"/>
+                </clipPath>
+              </defs>
+              <line x1="24" y1="256" x2="816" y2="256" stroke="rgba(26,25,23,0.12)" stroke-width="1"/>
+              <g clip-path="url(#clip1d)">
+                <rect x="24" y="0" width="97" height="256" fill="#16A34A" opacity="0.14"/>
+                <rect x="121" y="0" width="97" height="256" fill="#16A34A" opacity="0.4"/>
+                <rect x="218" y="0" width="24" height="256" fill="#16A34A" opacity="1"/>
+                <rect x="242" y="0" width="146" height="256" fill="#16A34A" opacity="0.14"/>
+                <rect x="388" y="0" width="97" height="256" fill="#16A34A" opacity="0.4"/>
+                <rect x="485" y="0" width="72" height="256" fill="#16A34A" opacity="1"/>
+                <rect x="557" y="0" width="259" height="256" fill="#16A34A" opacity="0.14"/>
+              </g>
+              <polyline points="24,236 72,233 121,218 169,192 218,154 242,115 291,154 339,192 388,209 436,201 485,171 533,124 557,77 606,111 654,145 703,154 751,162 790,167 816,169" fill="none" stroke="#1A1917" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+              <text x="242" y="96" text-anchor="middle" font-family="Barlow Condensed" font-size="19" font-weight="600" fill="#4B4840" letter-spacing="0.04em">MORTIROLO</text>
+              <text x="557" y="58" text-anchor="middle" font-family="Barlow Condensed" font-size="19" font-weight="600" fill="#4B4840" letter-spacing="0.04em">FOSCAGNO</text>
+              <!-- start flag -->
+              <path d="M24,222 L48,229 L24,236 Z" fill="#16A34A"/>
+              <!-- finish flag (checkered) -->
+              <g>
+                <rect x="795" y="148" width="7" height="7" fill="#1A1917"/>
+                <rect x="802" y="148" width="7" height="7" fill="#FAFAF8"/>
+                <rect x="809" y="148" width="7" height="7" fill="#1A1917"/>
+                <rect x="795" y="155" width="7" height="7" fill="#FAFAF8"/>
+                <rect x="802" y="155" width="7" height="7" fill="#1A1917"/>
+                <rect x="809" y="155" width="7" height="7" fill="#FAFAF8"/>
+                <rect x="795" y="148" width="21" height="14" fill="none" stroke="#1A1917" stroke-width="1.25"/>
+              </g>
+              <text x="24" y="196" text-anchor="start" font-family="Barlow Condensed" font-size="24" font-weight="700" fill="#1A1917" letter-spacing="0.03em">TIRANO</text>
+              <text x="24" y="214" text-anchor="start" font-family="Barlow Condensed" font-size="15" font-weight="500" fill="#95908A" letter-spacing="0.05em">440 M</text>
+              <text x="816" y="122" text-anchor="end" font-family="Barlow Condensed" font-size="24" font-weight="700" fill="#1A1917" letter-spacing="0.03em">BORMIO</text>
+              <text x="816" y="141" text-anchor="end" font-family="Barlow Condensed" font-size="15" font-weight="500" fill="#95908A" letter-spacing="0.05em">1,225 M</text>
+            </svg>
+          </div>
+          <div style="display:flex; flex-direction:column;">
+            <div style="font-family:'Barlow Condensed',sans-serif; font-size:9.5px; font-weight:700; color:#95908A; letter-spacing:0.14em; text-transform:uppercase; margin-bottom:12px;">ROUTE MAP</div>
+            <svg viewBox="0 0 460 220" width="100%" height="210" preserveAspectRatio="xMidYMax meet" style="display:block; flex:1;">
+              <path d="M240,14 C248,11 258,13 261,23 C264,33 257,38 260,48 C263,58 273,63 270,74 C267,84 276,92 271,103 C268,111 277,117 273,127 C270,135 279,141 275,151 C272,159 280,165 276,174 C273,180 279,186 274,192 C270,196 262,197 260,191 C258,185 252,184 249,190 C246,196 239,200 234,197 C230,194 233,187 230,181 C227,175 220,174 222,166 C224,160 231,159 229,151 C227,145 220,144 223,136 C226,130 233,130 233,122 C233,116 227,112 230,104 C233,98 240,98 240,90 C240,84 234,80 237,72 C240,66 247,66 247,58 C247,52 241,48 244,40 C246,36 244,28 240,14 Z" fill="#E6E4DD" stroke="#C9C5BC" stroke-width="1.2" opacity="0.9"/>
+              <ellipse cx="230" cy="207" rx="9" ry="6" fill="#E6E4DD" stroke="#C9C5BC" stroke-width="1"/>
+              <circle cx="255" cy="45" r="5" fill="#FAFAF8" stroke="#16A34A" stroke-width="2.5"/>
+              <circle cx="268" cy="72" r="5" fill="#16A34A"/>
+              <text x="265" y="42" font-family="Barlow Condensed" font-size="12" font-weight="700" fill="#1A1917">TIRANO</text>
+              <text x="265" y="55" font-family="Barlow Condensed" font-size="9" fill="#95908A">START · 440M</text>
+              <text x="278" y="69" font-family="Barlow Condensed" font-size="12" font-weight="700" fill="#1A1917">BORMIO</text>
+              <text x="278" y="82" font-family="Barlow Condensed" font-size="9" fill="#95908A">FINISH · 1,225M</text>
+            </svg>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <p class="dv-next">Try next: "break <a class="dv-oid" href="#1d">1d</a> out as a standalone component" · "add climb gradient % labels" · "show a flat classic-stage version"</p>
+</section>
+
+</x-dc>
+</body>
+</html>

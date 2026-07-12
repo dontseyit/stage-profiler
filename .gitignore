@@ -17,3 +17,5 @@ dist/
 .claude/
 .idea/
 .vscode/
+examples/
+misc/
