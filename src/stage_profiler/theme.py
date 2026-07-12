@@ -22,6 +22,10 @@ __all__ = [
     "INK_MUTE",
     "ACCENT",
     "BAND_OPACITY",
+    "BAND_COLORS",
+    "BAUHAUS_BLUE",
+    "BAUHAUS_YELLOW",
+    "BAUHAUS_RED",
     "LAND_FILL",
     "LAND_STROKE",
     "BASELINE",
@@ -36,12 +40,19 @@ PAPER = "#FAFAF8"      # light land / paper tone
 BACKGROUND = "#E6E4DD"  # the warm ground both visuals are drawn on
 INK = "#1A1917"        # elevation line, primary labels
 INK_SOFT = "#4B4840"   # climb names
-INK_MUTE = "#95908A"   # elevations, secondary labels
+INK_MUTE = "#4B4840"   # elevations, secondary labels
 
-# ── The single accent ─────────────────────────────────────────────────────────
-# Green. Steepness is this one green at three opacities: gentle · moderate · steep.
+# ── Accent (map pins) ─────────────────────────────────────────────────────────
 ACCENT = "#F2C200"
 BAND_OPACITY = (0.14, 0.40, 1.0)
+
+# ── Bauhaus primaries ─────────────────────────────────────────────────────────
+# The profile paints steepness in flat primary blocks, running cool → hot across the three
+# tiers: gentle (blue) · moderate (yellow) · steep (red).
+BAUHAUS_BLUE = "#FFFFFF"
+BAUHAUS_YELLOW = "#F4C20D"
+BAUHAUS_RED = "#E1251B"
+BAND_COLORS = (BAUHAUS_BLUE, BAUHAUS_YELLOW, BAUHAUS_RED)
 
 # ── Map ───────────────────────────────────────────────────────────────────────
 LAND_FILL = "#FAFAF8"   # country reads as light land on the warm BACKGROUND

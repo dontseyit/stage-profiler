@@ -20,7 +20,7 @@ from stage_profiler import (
 )
 from stage_profiler.render import HEIGHT, WIDTH
 from stage_profiler.steepness import MIN_BAND_M
-from stage_profiler.theme import ACCENT, BACKGROUND
+from stage_profiler.theme import BACKGROUND, BAND_COLORS
 
 SIMPLE_GPX = """<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
@@ -128,10 +128,10 @@ def test_render_is_valid_svg_at_fixed_size():
 
 def test_render_has_bands_line_and_markers():
     svg = _profile()
-    assert 'class="sp-band"' in svg and ACCENT in svg
+    assert 'class="sp-band"' in svg and any(c in svg for c in BAND_COLORS)
     assert 'class="sp-line"' in svg and "polyline" in svg
     assert 'class="sp-baseline"' in svg
-    assert 'class="sp-start"' in svg and 'class="sp-finish"' in svg
+    assert 'class="sp-finish"' in svg   # finish marker (the start has none)
 
 
 def test_render_labels_towns_uppercase_climbs_letter_case():

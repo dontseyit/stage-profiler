@@ -18,12 +18,10 @@ from typing import Sequence, Tuple
 from .geometry import Series, ele_at
 from .steepness import steepness_bands
 from .theme import (
-    ACCENT,
     BACKGROUND,
-    BASELINE,
+    BAND_COLORS,
     INK,
     INK_MUTE,
-    INK_SOFT,
     PAPER,
     _fmt_ele,
     _num,
@@ -36,9 +34,9 @@ _SVG_NS = "http://www.w3.org/2000/svg"
 
 # Canvas & plot frame (fixed) — a compact 768×128 banner strip.
 WIDTH, HEIGHT = 768, 128
-PAD_X = 14.0
-BASE_Y = 102.0        # baseline hairline
-LINE_BOTTOM = 94.0    # the route's low point sits here (a foot of space above the baseline)
+PAD_X = 20.0          # side padding around the corner text and the profile
+BASE_Y = 96.0         # baseline hairline (lifted to give the foot labels breathing room)
+LINE_BOTTOM = 88.0    # the route's low point sits here (a foot of space above the baseline)
 LINE_TOP = 44.0       # the top of the elevation span sits here (room for climb labels above)
 PLOT_H = LINE_BOTTOM - LINE_TOP
 
@@ -51,17 +49,17 @@ _LINE_POINTS = 300
 # Climb labels: centred over each summit (the centre of the near-highest stretch within
 # this window — a plateau at its middle, a peak at its point), a fixed rise above it and
 # tied down by a thin leader. Different summit heights separate the names vertically.
-_SUMMIT_WINDOW_M = 2000.0
-_SUMMIT_TOL_M = 10.0
-_CLIMB_RISE = 11.0
+_SUMMIT_WINDOW_M = 0.0
+_SUMMIT_TOL_M = 0.0
+_CLIMB_RISE = 20.0
 
-# Start/finish flag row — the top of each corner border rule.
-_FLAG_Y = 18.0
+# Finish marker row — the top of the finish border rule.
+_FLAG_Y = 20.0
 
 # Foot labels (town + elevation) and the km marker, relative to the frame.
-_KM_Y = 12.0
-_TOWN_DY = 12.0       # town baseline, below BASE_Y
-_ELE_DY = 22.0        # elevation baseline, below BASE_Y
+_KM_Y = 15.0
+_TOWN_DY = 15.0       # town baseline, below BASE_Y (a gap under the baseline bar)
+_ELE_DY = 25.0        # elevation baseline, below BASE_Y
 
 Climb = Tuple[str, float]  # (name, summit_km)
 
@@ -92,11 +90,22 @@ def render_profile_svg(
 
     body: "list[str]" = [
         f'<rect class="sp-bg" width="{WIDTH}" height="{HEIGHT}" fill="{BACKGROUND}"/>',
-        f'<line class="sp-baseline" x1="{_num(PAD_X)}" y1="{_num(BASE_Y)}" '
-        f'x2="{_num(WIDTH - PAD_X)}" y2="{_num(BASE_Y)}" stroke="{BASELINE}" stroke-width="1"/>',
     ]
 
-    # Steepness bands, clipped to the silhouette under the line.
+    # Climb summits, resolved once. Their location rules are drawn *first*, so the bands and
+    # line paint over them — only the leader above the profile shows, never a streak across it.
+    marks = []
+    for name, km in climbs:
+        d = _summit(ds, es, max(0.0, min(km * 1000.0, total)), total)
+        px, peak_y = x(d), y(ele_at(ds, es, d))
+        marks.append((str(name), px, peak_y, peak_y - _CLIMB_RISE))
+    for _name, px, _peak_y, label_y in marks:
+        body.append(
+            f'<line class="sp-leader" x1="{px:.2f}" y1="{label_y + 3:.2f}" x2="{px:.2f}" '
+            f'y2="{_num(BASE_Y)}" stroke="{INK}" stroke-width="0.75"/>'
+        )
+
+    # Steepness bands — flat primary blocks, clipped to the silhouette under the line.
     clip = (f"M{x(0):.2f},{BASE_Y} "
             + " ".join(f"L{px:.2f},{py:.2f}" for px, py in pts)
             + f" L{x(total):.2f},{BASE_Y} Z")
@@ -105,39 +114,38 @@ def render_profile_svg(
         bx = x(band.d0)
         rects.append(
             f'<rect class="sp-band" x="{bx:.2f}" y="0" width="{x(band.d1) - bx:.2f}" '
-            f'height="{_num(BASE_Y)}" fill="{ACCENT}" opacity="{band.opacity:g}"/>'
+            f'height="{_num(BASE_Y)}" fill="{BAND_COLORS[band.tier]}"/>'
         )
     body.append(
         f'<defs><clipPath id="sp-clip"><path d="{clip}"/></clipPath></defs>'
         f'<g clip-path="url(#sp-clip)">{"".join(rects)}</g>'
     )
 
+    # Bold black baseline bar (the km axis) and elevation line.
+    body.append(
+        f'<line class="sp-baseline" x1="{_num(PAD_X)}" y1="{_num(BASE_Y)}" '
+        f'x2="{_num(WIDTH - PAD_X)}" y2="{_num(BASE_Y)}" stroke="{INK}" stroke-width="3"/>'
+    )
     body.append(
         f'<polyline class="sp-line" points="{line}" fill="none" stroke="{INK}" '
-        f'stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>'
+        f'stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>'
     )
 
-    # Climb names centred over each summit, a fixed rise above it, tied down by a thin
-    # leader. Taller climbs' names sit higher, which also keeps close summits from colliding.
-    for name, km in climbs:
-        d = _summit(ds, es, max(0.0, min(km * 1000.0, total)), total)
-        px, peak_y = x(d), y(ele_at(ds, es, d))
-        label_y = peak_y - _CLIMB_RISE
-        body.append(
-            f'<line class="sp-leader" x1="{px:.2f}" y1="{label_y + 3:.2f}" x2="{px:.2f}" '
-            f'y2="{peak_y - 3:.2f}" stroke="{INK_MUTE}" stroke-width="1"/>'
-        )
+    # Climb names, painted on top of the profile.
+    for name, px, _peak_y, label_y in marks:
         body.append(_text(
-            px, label_y, str(name),
-            size=11, weight=600, fill=INK_SOFT, anchor="middle", ls="0.01em", cls="sp-climb",
+            px, label_y, name,
+            size=11, weight=700, fill=INK, anchor="middle", ls="0.01em", cls="sp-climb",
         ))
 
     # Start (left) and finish (right) corners: town + elevation at the foot for both. Only
-    # the finish carries the distance marker and the full-height border rule; the start flag
-    # simply flies from its own short pole.
+    # the finish carries the distance marker and the full-height border rule.
     body.append(_corner(PAD_X, start_town, es[0], "", checker=False, anchor="start", flag_dir=1, border=False))
     body.append(_corner(WIDTH - PAD_X, finish_town, es[-1], f"{total / 1000:.1f} KM",
                         checker=True, anchor="end", flag_dir=-1, border=True))
+
+    # Steepness key — the one thing the primary-colour coding needs to read clearly.
+    body.append(_legend(PAD_X + 30, 20))
 
     return (
         f'<svg xmlns="{_SVG_NS}" class="stage-profile" viewBox="0 0 {WIDTH} {HEIGHT}" '
@@ -163,44 +171,45 @@ def _summit(ds: "list[float]", es: "list[float]", d: float, total: float) -> flo
 
 def _corner(x_edge: float, town: str, ele: float, km_label: str, *,
             checker: bool, anchor: str, flag_dir: int, border: bool) -> str:
-    """A start/finish corner: an optional distance marker (km-axis endpoint) and a flag up
-    top, the town and its elevation at the foot. When ``border`` is set, a rule runs the full
-    height between them, planting the flag and tying the corner to the route; otherwise the
-    flag flies from its own short pole."""
+    """A start/finish corner: an optional distance marker (km-axis endpoint) and a geometric
+    marker up top, the town and its elevation at the foot. When ``border`` is set, a grid rule
+    runs the full height between them, tying the corner to the route."""
     if not town:
         return ""
     parts: "list[str]" = []
     if km_label:
-        parts.append(_text(x_edge, _KM_Y, km_label, size=12, weight=600, fill=INK_SOFT, anchor=anchor, ls="0.04em", cls="sp-dist"))
+        parts.append(_text(x_edge, _KM_Y, km_label, size=16, weight=700, fill=INK, anchor=anchor, ls="0.04em", cls="sp-dist"))
     if border:
         parts.append(f'<line class="sp-border" x1="{x_edge:.1f}" y1="{_FLAG_Y:.1f}" '
-                     f'x2="{x_edge:.1f}" y2="{BASE_Y:.1f}" stroke="{INK}" stroke-width="1.3"/>')
-    parts.append(_flag(x_edge, _FLAG_Y, checker=checker, direction=flag_dir, pole=not border))
-    parts.append(_text(x_edge, BASE_Y + _TOWN_DY, town.upper(), size=13, weight=700, fill=INK, anchor=anchor, ls="0.02em", cls="sp-town"))
-    parts.append(_text(x_edge, BASE_Y + _ELE_DY, _fmt_ele(ele), size=10, weight=500, fill=INK_MUTE, anchor=anchor, ls="0.04em", cls="sp-ele"))
+                     f'x2="{x_edge:.1f}" y2="{BASE_Y:.1f}" stroke="{INK}" stroke-width="0.75"/>')
+    if checker:  # finish carries the checkered marker; the start has none
+        parts.append(_finish_marker(x_edge, _FLAG_Y, direction=flag_dir))
+    parts.append(_text(x_edge, BASE_Y + _TOWN_DY, town.upper(), size=14, weight=700, fill=INK, anchor=anchor, ls="0.02em", cls="sp-town"))
+    parts.append(_text(x_edge, BASE_Y + _ELE_DY + 2, _fmt_ele(ele), size=12, weight=500, fill=INK_MUTE, anchor=anchor, ls="0.04em", cls="sp-ele"))
     return "".join(parts)
 
 
-def _flag(pole_x: float, y: float, *, checker: bool, direction: int, pole: bool) -> str:
-    """A start/finish flag: a solid accent pennant (start) or a checkered flag (finish), in
-    ``direction`` (+1 right / -1 left) so both fly inward. With ``pole`` it carries its own
-    short staff; otherwise it flies from the corner border drawn by :func:`_corner`."""
-    d = 1.0 if direction > 0 else -1.0
-    staff = ([f'<line x1="{pole_x:.1f}" y1="{y:.1f}" x2="{pole_x:.1f}" y2="{y + 18:.1f}" '
-              f'stroke="{INK}" stroke-width="1.6" stroke-linecap="round"/>'] if pole else [])
-    if not checker:
-        fw, fh = 13.0, 9.0
-        tip = pole_x + d * fw
-        pennant = (f'<path d="M{pole_x:.1f},{y:.1f} L{tip:.1f},{y + fh / 2:.1f} '
-                   f'L{pole_x:.1f},{y + fh:.1f} Z" fill="{ACCENT}"/>')
-        return f'<g class="sp-start">{"".join(staff)}{pennant}</g>'
-    cell, cols, rows = 5.0, 3, 2
-    bx = pole_x if d > 0 else pole_x - cols * cell
-    cells = staff + [
-        f'<rect x="{bx + c * cell:.1f}" y="{y + r * cell:.1f}" width="{cell}" height="{cell}" '
+def _legend(x: float, y: float) -> str:
+    """A compact steepness key — the three primary swatches with their gradient bands."""
+    parts: "list[str]" = []
+    cx = x
+    for color, label in zip(BAND_COLORS, ("< 4%", "4–8%", "≥ 8%")):
+        parts.append(f'<rect class="sp-legend" x="{cx:.1f}" y="{y - 9:.1f}" width="11" height="11" fill="{color}"/>')
+        parts.append(_text(cx + 14, y, label, size=14, weight=600, fill=INK, ls="0.01em", cls="sp-legend"))
+        cx += 56
+    return "".join(parts)
+
+
+def _finish_marker(x: float, y: float, *, direction: int) -> str:
+    """The finish marker — a bold 2×2 checkered square, flying inward from its edge
+    (``direction`` +1 right / -1 left)."""
+    cell = 8.0
+    bx = x if direction > 0 else x - 2 * cell
+    cells = [
+        f'<rect x="{bx + c * cell:.1f}" y="{y + r * cell:.1f}" width="{cell:g}" height="{cell:g}" '
         f'fill="{INK if (r + c) % 2 == 0 else PAPER}"/>'
-        for r in range(rows) for c in range(cols)
+        for r in range(2) for c in range(2)
     ]
-    outline = (f'<rect x="{bx:.1f}" y="{y:.1f}" width="{cols * cell}" height="{rows * cell}" '
-               f'fill="none" stroke="{INK}" stroke-width="1"/>')
+    outline = (f'<rect x="{bx:.1f}" y="{y:.1f}" width="{2 * cell:g}" height="{2 * cell:g}" '
+               f'fill="none" stroke="{INK}" stroke-width="1.25"/>')
     return f'<g class="sp-finish">{"".join(cells)}{outline}</g>'

@@ -7,6 +7,8 @@
       "start_town": "Carcassonne",
       "finish_town": "Foix",
       "climbs": [
+        { "name": "Col de Bedos", "km": 48.2 },
+        { "name": "Col de Paradis", "km": 64.9 },
         { "name": "Col de Coudons", "km": 104.9 },
         { "name": "Col de Montsegur", "km": 146.7 }
       ],
