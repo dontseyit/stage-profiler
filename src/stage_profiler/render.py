@@ -1,12 +1,16 @@
 """The stage-profile SVG — an official-roadbook profile.
 
 One baked-in look, no options: a fixed 640×192 (10:3) banner in the manner of the printed
-Grand-Tour roadbook. The elevation silhouette is tinted with the race accent under a bold
-ink outline; categorised climbs float over their summits (ink badge · altitude · name) on
+Grand-Tour roadbook. The elevation silhouette is filled with the race accent segmented by
+steepness — three opacities, darker tones for steeper gradients — under a bold ink outline;
+categorised climbs float over their summits (ink badge · altitude · name) on
 hairline location rules that run down through the mountain to the km scale; sprint points
-sit on the route line; a solid départ pennant and a checkered arrivée flag bookend the
-corners, where the start / finish towns and their elevations anchor the foot, with the km
-scale ticking along the foot between them.
+sit on the route line, each over its own rule to the km scale; a solid départ pennant and a
+checkered arrivée flag bookend the corners, where the start / finish towns and their
+elevations anchor the foot, with the km scale ticking along the foot between them. A climb
+that tops out at the finish (a mountaintop finish) shows its category badge just below the
+finish flag instead of a floating label the flag would collide with. A climb name may carry
+a newline to wrap onto stacked lines.
 
 The vertical scale floors the elevation span (:data:`FLOOR_SPAN_M`) so a flat classic stage
 reads as flat instead of being stretched into fake mountains, while a real mountain stage
@@ -18,6 +22,7 @@ from __future__ import annotations
 from typing import Sequence, Tuple
 
 from .geometry import Series, ele_at, nice_tick_step
+from .steepness import steepness_bands
 from .theme import (
     ACCENT,
     BACKGROUND,
@@ -48,8 +53,8 @@ FLOOR_SPAN_M = 1000.0
 # Elevation line resolution (points across the width).
 _LINE_POINTS = 300
 
-# The silhouette tint — the race accent laid flat over the ground, roadbook-print style.
-_FILL_OPACITY = 0.35
+# The silhouette is filled per steepness band with the accent at that tier's BAND_OPACITY —
+# darker tones for steeper gradients (see theme.BAND_OPACITY).
 
 # Climb labels: two rows centred over each summit — the name, and beneath it the category
 # badge + summit altitude — tied down by a location rule through the mountain. Labels near
@@ -58,7 +63,13 @@ _CLIMB_NAME_RISE = 26.0   # name baseline above the summit
 _CLIMB_META_RISE = 13.0   # badge + altitude row above the summit
 _CLIMB_EDGE_PAD = 55.0    # labels stay at least this far inside the frame edges
 _CLIMB_LIFT = 26.0        # vertical de-collision step between neighbouring labels
+_CLIMB_CHAR_W = 3.1       # ≈ half a name character's width (size 11) — keeps names on-canvas
+_CLIMB_LINE_H = 12.0      # line height for a multi-line (newline-split) climb name
 _BADGE_H = 13.0
+
+# A climb whose summit sits within this of the finish is a mountaintop finish: its badge
+# moves onto the finish corner instead of a floating label that would collide with the flag.
+_SUMMIT_FINISH_TOL_M = 1000.0
 
 # Finish marker row — the top of the finish border rule.
 _FLAG_Y = 20.0
@@ -70,7 +81,7 @@ _SCALE_DY = 16.0      # scale-numeral baseline, below BASE_Y (shares the row wit
 _TOWN_DY = 16.0       # town baseline, below BASE_Y
 _ELE_DY = 29.0        # elevation baseline, below BASE_Y
 
-Climb = Tuple[str, float, str]  # (name, summit_km, category "HC"|"1".."4"|"")
+Climb = Tuple[str, float, str, float]  # (name, summit_km, category "HC"|"1".."4"|"", label_offset)
 
 
 def render_profile_svg(
@@ -101,30 +112,52 @@ def render_profile_svg(
         return LINE_BOTTOM - ((e - e_min) / span) * PLOT_H
 
     # Elevation line, resampled to a clean fixed resolution.
-    pts = [(x(d), y(ele_at(ds, es, d))) for d in _even_distances(total, _LINE_POINTS)]
+    line_ds = _even_distances(total, _LINE_POINTS)
+    pts = [(x(d), y(ele_at(ds, es, d))) for d in line_ds]
     line = " ".join(f"{px:.2f},{py:.2f}" for px, py in pts)
 
     body: "list[str]" = [
         f'<rect class="sp-bg" width="{WIDTH}" height="{HEIGHT}" fill="{BACKGROUND}"/>',
     ]
 
-    # Climb summits, resolved and de-collided once. Their location rules are drawn *first*
-    # so the translucent silhouette lays over them — full-strength above the profile,
-    # ghosted through the mountain, the printed-roadbook layering.
-    marks = _climb_marks(climbs, ds, es, total, x, y)
+    # A climb topping out at (or within a stride of) the finish is a mountaintop finish: its
+    # badge belongs on the finish corner, not a floating label colliding with the flag and
+    # distance — the finish town + elevation already carry its name and height. (Kept as a
+    # normal label when there's no finish town to carry the name.)
+    finish_category = ""
+    field_climbs: "list[Climb]" = []
+    summit_tol = min(_SUMMIT_FINISH_TOL_M, total * 0.1)  # bound it on short routes
+    for climb in climbs:
+        if finish_town and float(climb[1]) * 1000.0 >= total - summit_tol:
+            finish_category = climb[2] or finish_category
+        else:
+            field_climbs.append(climb)
+
+    # Climb summits, resolved and de-collided once. Location rules — for climbs and sprints
+    # alike — are drawn *first* so the translucent silhouette lays over them: full-strength
+    # above the profile, ghosted through the mountain, the printed-roadbook layering.
+    marks = _climb_marks(field_climbs, ds, es, total, x, y)
+    sprint_pts = [(x(d), y(ele_at(ds, es, d)))
+                  for d in (max(0.0, min(float(km) * 1000.0, total)) for km in sprints)]
     for mark in marks:
         body.append(
             f'<line class="sp-leader" x1="{mark.px:.2f}" y1="{mark.meta_y + 4:.2f}" '
             f'x2="{mark.px:.2f}" y2="{_num(BASE_Y)}" stroke="{INK}" stroke-width="0.6"/>'
         )
+    for spx, spy in sprint_pts:
+        body.append(
+            f'<line class="sp-leader" x1="{spx:.2f}" y1="{spy:.2f}" '
+            f'x2="{spx:.2f}" y2="{_num(BASE_Y)}" stroke="{INK}" stroke-width="0.6"/>'
+        )
 
-    # The silhouette — race-accent tint under a bold ink outline.
-    fill_d = (f"M{x(0):.2f},{_num(BASE_Y)} "
-              + " ".join(f"L{px:.2f},{py:.2f}" for px, py in pts)
-              + f" L{x(total):.2f},{_num(BASE_Y)} Z")
-    body.append(
-        f'<path class="sp-fill" d="{fill_d}" fill="{tint}" fill-opacity="{_FILL_OPACITY}"/>'
-    )
+    # The silhouette, segmented by steepness — the accent at three opacities (light → dark for
+    # gentle → steep), under a bold ink outline. Each band is its own filled slice under the
+    # line, so the SVG stays self-contained (no shared clip-path id to collide when several
+    # profiles are inlined on one page).
+    dist_pts = list(zip(line_ds, pts))
+    bands = "".join(_band_fill(band, tint, dist_pts, x, y, ds, es)
+                    for band in steepness_bands(series))
+    body.append(f'<g class="sp-fill">{bands}</g>')
 
     # Bold black baseline bar (the km axis) and elevation line.
     body.append(
@@ -140,17 +173,17 @@ def render_profile_svg(
     for mark in marks:
         body.append(_climb_label(mark))
 
-    # Sprint points, marked on the route line where they happen.
-    for km in sprints:
-        d = max(0.0, min(float(km) * 1000.0, total))
-        body.append(_sprint_marker(x(d), y(ele_at(ds, es, d))))
+    # Sprint roundels on the route line (their location rules are drawn above, with the climbs').
+    for spx, spy in sprint_pts:
+        body.append(_sprint_marker(spx, spy))
 
     # Start (left) and finish (right) corners, bookended by their flags — a solid départ
     # pennant and the checkered arrivée. Both carry the full-height border rule; only the
     # finish adds the distance marker.
     body.append(_corner(PAD_X, start_town, es[0], "", marker="start", anchor="start", flag_dir=1, border=True))
     body.append(_corner(WIDTH - PAD_X, finish_town, es[-1], f"{total / 1000:.1f} KM",
-                        marker="finish", anchor="end", flag_dir=-1, border=True))
+                        marker="finish", anchor="end", flag_dir=-1, border=True,
+                        category=finish_category))
 
     # The km scale along the foot, kept clear of the corner town names.
     body.append(_km_scale(total, x, start_town, finish_town))
@@ -165,7 +198,27 @@ def _even_distances(total: float, n: int) -> "list[float]":
     return [total * i / (n - 1) for i in range(n)]
 
 
+def _band_fill(band, tint: str, dist_pts, x, y, ds: "list[float]", es: "list[float]") -> str:
+    """One steepness band as a filled slice of the area under the line — the accent at the
+    tier's opacity (darker = steeper). ``dist_pts`` are the ``(distance, (px, py))`` line
+    samples; the band spans ``[band.d0, band.d1)`` with its ends interpolated onto the line."""
+    d0, d1 = band.d0, band.d1
+    top = [(x(d0), y(ele_at(ds, es, d0)))]
+    top += [pt for d, pt in dist_pts if d0 < d < d1]
+    top.append((x(d1), y(ele_at(ds, es, d1))))
+    seg = " ".join(f"L{px:.2f},{py:.2f}" for px, py in top)
+    d_attr = f"M{x(d0):.2f},{_num(BASE_Y)} {seg} L{x(d1):.2f},{_num(BASE_Y)} Z"
+    return f'<path class="sp-band" d="{d_attr}" fill="{tint}" fill-opacity="{band.opacity:g}"/>'
+
+
 # ── Climbs ────────────────────────────────────────────────────────────────────
+
+def _name_lines(name: str) -> "list[str]":
+    """Split a climb name on explicit newlines into stacked label lines, trimming each and
+    dropping blanks — so a long name can be wrapped by hand. Always at least one line."""
+    lines = [ln.strip() for ln in str(name).split("\n")]
+    return [ln for ln in lines if ln] or [""]
+
 
 class _Mark:
     """A resolved climb label: where the rule stands and where the two rows sit."""
@@ -184,11 +237,17 @@ def _climb_marks(climbs: "Sequence[Climb]", ds: "list[float]", es: "list[float]"
     """Resolve climb labels: summit position, edge-clamped text centre, and a single
     de-collision pass that lifts a label overlapping its left neighbour."""
     marks: "list[_Mark]" = []
-    for name, km, category in climbs:
+    for name, km, category, offset in climbs:
         d = max(0.0, min(float(km) * 1000.0, total))
         ele = ele_at(ds, es, d)
         px = x(d)
-        cx = min(max(px, PAD_X + _CLIMB_EDGE_PAD), WIDTH - PAD_X - _CLIMB_EDGE_PAD)
+        # The label centre is the summit x plus the per-climb offset (to pull overlapping
+        # labels apart); the leader rule stays at ``px``. Keep the whole centred label
+        # on-canvas: inset by half its widest line, never less than the base edge pad.
+        widest = max(len(ln) for ln in _name_lines(name))
+        half_w = max(_CLIMB_EDGE_PAD, widest * _CLIMB_CHAR_W)
+        lo, hi = PAD_X + half_w, WIDTH - PAD_X - half_w
+        cx = (lo + hi) / 2 if lo > hi else min(max(px + offset, lo), hi)
         peak_y = y(ele)
         marks.append(_Mark(str(name), str(category), ele, px, cx,
                            peak_y - _CLIMB_NAME_RISE, peak_y - _CLIMB_META_RISE))
@@ -202,9 +261,14 @@ def _climb_marks(climbs: "Sequence[Climb]", ds: "list[float]", es: "list[float]"
 
 
 def _climb_label(mark: _Mark) -> str:
-    """The two label rows over a summit: bold name, then category badge + altitude."""
-    parts = [_text(mark.cx, mark.name_y, mark.name, size=11, weight=700, fill=INK,
-                   anchor="middle", ls="0.01em", cls="sp-climb")]
+    """The label over a summit: the (optionally multi-line) name, then category badge +
+    altitude. Extra name lines stack *upward*, keeping the last line just over the badge."""
+    lines = _name_lines(mark.name)
+    parts = [
+        _text(mark.cx, mark.name_y - (len(lines) - 1 - i) * _CLIMB_LINE_H, line,
+              size=11, weight=700, fill=INK, anchor="middle", ls="0.01em", cls="sp-climb")
+        for i, line in enumerate(lines)
+    ]
     alt = _fmt_ele(mark.ele)
     alt_w = len(alt) * 5.1
     if mark.category:
@@ -265,11 +329,12 @@ def _km_scale(total: float, x, start_town: str, finish_town: str) -> str:
 
 
 def _corner(x_edge: float, town: str, ele: float, km_label: str, *,
-            marker: str, anchor: str, flag_dir: int, border: bool) -> str:
+            marker: str, anchor: str, flag_dir: int, border: bool, category: str = "") -> str:
     """A start/finish corner: the flag up top (a solid pennant for the start, the checkered
     flag for the finish), an optional distance marker, and the town + its elevation at the
     foot. When ``border`` is set a hairline rule runs the full height, tying the corner to
-    the route — and serving as the flagpole the pennant flies from."""
+    the route — and serving as the flagpole the pennant flies from. ``category`` sets a
+    climb-category badge inboard of the finish flag (a mountaintop finish)."""
     if not town:
         return ""
     parts: "list[str]" = []
@@ -280,11 +345,29 @@ def _corner(x_edge: float, town: str, ele: float, km_label: str, *,
                      f'x2="{x_edge:.1f}" y2="{BASE_Y:.1f}" stroke="{INK}" stroke-width="2"/>')
     if marker == "finish":
         parts.append(_finish_marker(x_edge, _FLAG_Y, direction=flag_dir))
+        if category:
+            parts.append(_finish_badge(x_edge, category, direction=flag_dir))
     elif marker == "start":
         parts.append(_start_marker(x_edge, _FLAG_Y, direction=flag_dir))
     parts.append(_text(x_edge, BASE_Y + _TOWN_DY, town.upper(), size=14, weight=700, fill=INK, anchor=anchor, ls="0.02em", cls="sp-town"))
     parts.append(_text(x_edge, BASE_Y + _ELE_DY + 2, _fmt_ele(ele), size=12, weight=500, fill=INK_MUTE, anchor=anchor, ls="0.04em", cls="sp-ele"))
     return "".join(parts)
+
+
+def _finish_badge(x_edge: float, category: str, *, direction: int) -> str:
+    """A climb-category badge for a mountaintop finish, centred just below the checkered flag
+    (``direction`` -1 = flag flies left from the right edge)."""
+    badge_w = 20.0 if category == "HC" else 13.0
+    flag_w = 16.0
+    flag_center = x_edge - flag_w / 2 if direction < 0 else x_edge + flag_w / 2
+    bx = flag_center - badge_w / 2
+    by = _FLAG_Y + flag_w + 5.0   # below the flag (flag runs _FLAG_Y … _FLAG_Y + flag_w)
+    return (
+        f'<rect class="sp-cat" x="{bx:.1f}" y="{by:.1f}" width="{_num(badge_w)}" '
+        f'height="{_num(_BADGE_H)}" fill="{INK}"/>'
+        + _text(bx + badge_w / 2, by + 10, category, size=8.5, weight=700, fill=PAPER,
+                anchor="middle", ls="0.04em", cls="sp-cat")
+    )
 
 
 def _start_marker(x: float, y: float, *, direction: int) -> str:

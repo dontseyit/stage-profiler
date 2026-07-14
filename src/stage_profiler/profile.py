@@ -27,11 +27,17 @@ CLIMB_CATEGORIES = ("HC", "1", "2", "3", "4", "")
 class Climb:
     """A named climb labelled over its summit. ``km`` is the summit's distance along the
     route; ``category`` is the UCI climb category (``"HC"``, ``"1"``…``"4"``), drawn as the
-    summit badge, or ``""`` for an uncategorised climb."""
+    summit badge, or ``""`` for an uncategorised climb.
+
+    ``offset`` nudges the *label* horizontally (in canvas units; ``+`` right, ``-`` left)
+    while its location rule stays on the summit — use it to separate labels that would
+    otherwise overlap. The label is still kept inside the frame, so a huge offset is capped.
+    """
 
     name: str
     km: float
     category: str = ""
+    offset: float = 0.0
 
     def __post_init__(self) -> None:
         if self.category not in CLIMB_CATEGORIES:
@@ -133,7 +139,7 @@ class StageProfile:
             self.series,
             start_town=self.start_town,
             finish_town=self.finish_town,
-            climbs=[(c.name, c.km, c.category) for c in self.climbs],
+            climbs=[(c.name, c.km, c.category, c.offset) for c in self.climbs],
             sprints=self.sprints,
             accent=self.accent,
         )

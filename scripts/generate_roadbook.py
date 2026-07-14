@@ -28,7 +28,8 @@ Manifest format (paths resolve relative to the manifest file)::
           "length_km": 172,                     # optional — clip the route here (drawn finish)
           "climbs": [                           # named climbs, labelled over their summit km
             { "name": "Port de Lers", "km": 118, "category": "1" },
-            { "name": "Mur de Péguère", "km": 147, "category": "2" }
+            # optional "offset" nudges the label sideways (canvas units) to avoid overlaps
+            { "name": "Mur de Péguère", "km": 147, "category": "2", "offset": -30 }
           ],
           "map": {                              # optional — omit for a profile-only race
             "geojson": "fra.geojson",
@@ -126,14 +127,17 @@ def _coord(value: object) -> "LonLat | None":
 
 
 def _climbs(value: object, gpx: str) -> "tuple[Climb, ...]":
-    """Validate a manifest ``climbs`` list of ``{name, km[, category]}`` entries."""
+    """Validate a manifest ``climbs`` list of ``{name, km[, category][, offset]}`` entries."""
     climbs: "list[Climb]" = []
     for entry in value or []:
         if not (isinstance(entry, dict) and "name" in entry and "km" in entry):
             raise ValueError(f"{gpx}: each climb needs 'name' and 'km', got {entry!r}")
+        offset = entry.get("offset", 0)
+        if isinstance(offset, bool) or not isinstance(offset, (int, float)):
+            raise ValueError(f"{gpx}: climb 'offset' must be a number, got {offset!r}")
         try:
             climbs.append(Climb(str(entry["name"]), float(entry["km"]),
-                                str(entry.get("category", "")).upper()))
+                                str(entry.get("category", "")).upper(), float(offset)))
         except ValueError as exc:
             raise ValueError(f"{gpx}: {exc}") from exc
     return tuple(climbs)

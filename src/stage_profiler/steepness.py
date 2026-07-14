@@ -1,9 +1,9 @@
-"""Segment a route into steepness bands — the single green at three opacities.
+"""Segment a route into steepness bands — the one accent colour at three opacities.
 
 Each band is a contiguous stretch of route classified by its *sustained* uphill gradient
-into one of three tiers (gentle/flat/descent · moderate · steep). The renderer paints each
-band as a full-height rectangle of the accent green, clipped to the silhouette under the
-elevation line, at the tier's :data:`~stage_profiler.theme.BAND_OPACITY`.
+into one of three tiers (gentle/flat/descent · moderate · steep). The renderer fills each
+band's slice of the area under the elevation line with the accent at the tier's
+:data:`~stage_profiler.theme.BAND_OPACITY` — darker tones for steeper gradients.
 
 Two things keep the bands reading as clean blocks (like the design) rather than a picket
 fence of slivers: the tier is decided from a gradient measured over a wide sustained

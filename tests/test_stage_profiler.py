@@ -17,11 +17,12 @@ from stage_profiler import (
     clip_series,
     parse_gpx,
     prettify_name,
+    render_profile_svg,
     steepness_bands,
 )
 from stage_profiler.render import HEIGHT, WIDTH
 from stage_profiler.steepness import MIN_BAND_M
-from stage_profiler.theme import ACCENT, BACKGROUND
+from stage_profiler.theme import ACCENT, BACKGROUND, BAND_OPACITY
 
 SIMPLE_GPX = """<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
@@ -133,8 +134,10 @@ def test_moderate_and_steep_tiers():
 
 
 def test_opacity_follows_tier():
+    gentle = [b for b in steepness_bands(_series(_ramp(1))) if b.tier == 0][0]
     steep = [b for b in steepness_bands(_series(_ramp(12))) if b.tier == 2][0]
-    assert steep.opacity == 1.0
+    assert steep.opacity == BAND_OPACITY[2] == max(BAND_OPACITY)   # steeper = darker tone
+    assert gentle.opacity < steep.opacity
 
 
 def test_short_spike_is_absorbed_no_slivers():
@@ -162,11 +165,22 @@ def test_render_is_valid_svg_at_fixed_size():
 
 def test_render_has_silhouette_line_and_markers():
     svg = _profile()
-    assert 'class="sp-fill"' in svg and ACCENT in svg   # accent-tinted silhouette
+    assert 'class="sp-fill"' in svg and ACCENT in svg   # accent-toned silhouette
     assert 'class="sp-line"' in svg and "polyline" in svg
     assert 'class="sp-baseline"' in svg
     assert 'class="sp-start"' in svg    # départ pennant
     assert 'class="sp-finish"' in svg   # checkered arrivée flag
+
+
+def test_fill_is_segmented_into_steepness_bands_in_the_accent():
+    # A long route that ramps up then flattens yields several steepness bands, all the one
+    # accent at different opacities (darker = steeper) — never a second hue.
+    route = [(0, 0), (4000, 320), (8000, 360), (14000, 360)]   # steep climb, then flat
+    svg = render_profile_svg(_series(route), accent="#E4002B")
+    assert svg.count('class="sp-band"') >= 2
+    assert 'fill="#E4002B"' in svg and ACCENT not in svg
+    opacities = set(re.findall(r'class="sp-band"[^/]*fill-opacity="([0-9.]+)"', svg))
+    assert len(opacities) >= 2   # more than one tone in play
 
 
 def test_accent_from_data_tints_the_silhouette():
@@ -192,9 +206,58 @@ def test_invalid_climb_category_raises():
         Climb("Mortirolo", 55, "5")
 
 
+def test_climb_offset_shifts_label_but_not_leader():
+    # offset nudges the label horizontally; the location rule stays on the summit.
+    def label_and_leader(offset):
+        svg = StageProfile.from_gpx(
+            SIMPLE_GPX, climbs=[Climb("Mortirolo", 0.15, "2", offset)],
+        ).render()
+        leader = float(re.search(r'class="sp-leader" x1="([0-9.]+)"', svg).group(1))
+        label = float(re.search(r'<text x="([0-9.]+)"[^>]*class="sp-climb"', svg).group(1))
+        return label, leader
+
+    label0, leader0 = label_and_leader(0)
+    label40, leader40 = label_and_leader(40)
+    assert leader40 == leader0                       # the leader rule does not move
+    assert label40 == pytest.approx(label0 + 40)     # the label shifts right by the offset
+
+
+def test_summit_finish_moves_badge_to_the_finish_corner():
+    # A climb topping out at the finish is a mountaintop finish: its badge sits on the
+    # finish corner and the redundant floating name/altitude label is dropped (the finish
+    # town + elevation carry them). SIMPLE_GPX is ~0.33 km, so 0.33 km lands at the line.
+    svg = StageProfile.from_gpx(
+        SIMPLE_GPX, finish_town="Bormio", climbs=[Climb("Zoncolan", 0.33, "HC")],
+    ).render()
+    assert 'class="sp-cat"' in svg and ">HC</text>" in svg  # badge still drawn…
+    assert 'class="sp-climb"' not in svg                    # …but not as a floating label
+    assert "Zoncolan" not in svg                            # redundant with the finish town
+
+
+def test_climb_short_of_the_finish_stays_a_floating_label():
+    svg = StageProfile.from_gpx(
+        SIMPLE_GPX, finish_town="Bormio", climbs=[Climb("Mortirolo", 0.15, "2")],
+    ).render()
+    assert 'class="sp-climb"' in svg and "Mortirolo" in svg  # not merged into the finish
+
+
+def test_climb_name_newline_stacks_into_two_lines():
+    svg = StageProfile.from_gpx(
+        SIMPLE_GPX, climbs=[Climb("Col du\nGrand Ballon", 0.15, "1")],
+    ).render()
+    assert svg.count('class="sp-climb"') == 2                    # one text element per line
+    assert ">Col du</text>" in svg and ">Grand Ballon</text>" in svg
+
+
 def test_sprint_is_marked_on_the_route_line():
     svg = StageProfile.from_gpx(SIMPLE_GPX, sprints=[0.15]).render()
     assert 'class="sp-sprint"' in svg and ">S</text>" in svg
+
+
+def test_sprint_drops_a_location_rule_to_the_axis():
+    # No climbs, so any location rule (sp-leader) must be the sprint's vertical marker.
+    svg = StageProfile.from_gpx(SIMPLE_GPX, sprints=[0.15]).render()
+    assert 'class="sp-leader"' in svg
 
 
 def test_km_scale_ticks_along_the_foot():

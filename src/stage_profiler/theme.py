@@ -1,9 +1,10 @@
 """The roadbook design system — one baked-in look, no options.
 
 A stage *profile* and a stage *map* render as two views of the same system: the same
-paper, the same ink, one type family. The profile silhouette wears the race accent as a
-flat print tint (:data:`ACCENT` when the data gives none); badges, rules and type stay ink
-so any accent works.
+paper, the same ink, one type family. The profile silhouette wears the race accent
+(:data:`ACCENT` when the data gives none), segmented by steepness into three opacities
+(:data:`BAND_OPACITY`) — darker tones for steeper gradients; badges, rules and type stay
+ink so any accent works.
 
 Fonts are referenced, not embedded: the host page must load **Jost** (and, for PNG output,
 it must be installed) for the type to render as designed.
@@ -23,10 +24,6 @@ __all__ = [
     "INK_MUTE",
     "ACCENT",
     "BAND_OPACITY",
-    "BAND_COLORS",
-    "BAUHAUS_BLUE",
-    "BAUHAUS_YELLOW",
-    "BAUHAUS_RED",
     "LAND_FILL",
     "LAND_STROKE",
     "BASELINE",
@@ -43,17 +40,13 @@ INK = "#1A1917"        # elevation line, primary labels
 INK_SOFT = "#4B4840"   # climb names
 INK_MUTE = "#4B4840"   # elevations, secondary labels
 
-# ── Accent (map pins + the default profile-silhouette tint) ──────────────────
+# ── Accent (map pins + the profile-silhouette tint) ──────────────────────────
 ACCENT = "#F2C200"
-BAND_OPACITY = (0.14, 0.40, 1.0)
 
-# ── Bauhaus primaries ─────────────────────────────────────────────────────────
-# The profile paints steepness in flat primary blocks, running cool → hot across the three
-# tiers: gentle (blue) · moderate (yellow) · steep (red).
-BAUHAUS_BLUE = "#FFFFFF"
-BAUHAUS_YELLOW = "#F4C20D"
-BAUHAUS_RED = "#E1251B"
-BAND_COLORS = (BAUHAUS_BLUE, BAUHAUS_YELLOW, BAUHAUS_RED)
+# The profile fills the silhouette with the one accent at three opacities — light → dark for
+# gentle → moderate → steep — so steepness reads as darker tones of the accent, not a
+# second colour system. Consumed by ``steepness.Band.opacity`` and the profile renderer.
+BAND_OPACITY = (0.22, 0.66, 0.99)
 
 # ── Map ───────────────────────────────────────────────────────────────────────
 LAND_FILL = "#FAFAF8"   # country reads as light land on the warm BACKGROUND
