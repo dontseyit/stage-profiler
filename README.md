@@ -1,6 +1,8 @@
 # stage-profiler
 
-A simple *stage profile** generator from GPX file and a configuration. Describe the race assets in a JSON manifest and get back on-brand stage posters (PNG & SVG).
+A simple stage profile generator from GPX file and a configuration. Describe the routes in a JSON manifest and get back on-brand stage posters (PNG & SVG).
+
+![](examples/output/stage-15-parcours-profile.svg)
 
 ```bash
 stage-profiler races.json
