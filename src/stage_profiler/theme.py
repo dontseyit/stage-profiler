@@ -12,7 +12,6 @@ it must be installed) for the type to render as designed.
 
 from __future__ import annotations
 
-import math
 from xml.sax.saxutils import escape
 
 __all__ = [
@@ -20,13 +19,11 @@ __all__ = [
     "PAPER",
     "BACKGROUND",
     "INK",
-    "INK_SOFT",
     "INK_MUTE",
     "ACCENT",
     "BAND_OPACITY",
     "LAND_FILL",
     "LAND_STROKE",
-    "BASELINE",
 ]
 
 # ── Type ──────────────────────────────────────────────────────────────────────
@@ -37,7 +34,6 @@ FONT_STACK = "'Jost',sans-serif"
 PAPER = "#FAFAF8"      # light land / paper tone
 BACKGROUND = "#E6E4DD"  # the warm ground both visuals are drawn on
 INK = "#1A1917"        # elevation line, primary labels
-INK_SOFT = "#4B4840"   # climb names
 INK_MUTE = "#4B4840"   # elevations, secondary labels
 
 # ── Accent (map pins + the profile-silhouette tint) ──────────────────────────
@@ -51,9 +47,6 @@ BAND_OPACITY = (0.22, 0.66, 0.99)
 # ── Map ───────────────────────────────────────────────────────────────────────
 LAND_FILL = "#FAFAF8"   # country reads as light land on the warm BACKGROUND
 LAND_STROKE = "#C9C5BC"
-
-# ── Profile baseline hairline ─────────────────────────────────────────────────
-BASELINE = "rgba(26,25,23,0.12)"
 
 
 # ── SVG text helpers ──────────────────────────────────────────────────────────

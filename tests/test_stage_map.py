@@ -10,7 +10,7 @@ import xml.etree.ElementTree as ET
 
 import pytest
 
-from stage_profiler import Marker, StageMap, render_map_svg
+from stage_profiler import StageMap, render_map_svg
 from stage_profiler.map import HEIGHT, WIDTH
 from stage_profiler.theme import ACCENT, BACKGROUND, LAND_FILL, PAPER
 

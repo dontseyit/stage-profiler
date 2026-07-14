@@ -26,6 +26,11 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest>=7"]
 
+[project.urls]
+Homepage = "https://github.com/dontseyit/stage-profiler"
+Repository = "https://github.com/dontseyit/stage-profiler"
+Issues = "https://github.com/dontseyit/stage-profiler/issues"
+
 [project.scripts]
 stage-profiler = "stage_profiler.cli:main"
 

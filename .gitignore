@@ -9,13 +9,20 @@ dist/
 .pytest_cache/
 .mypy_cache/
 
-# Local route data / scratch
+# Local route data / scratch (the bundled sample.gpx is kept)
 *.gpx
+!sample.gpx
+misc/
+*-backup.json
+
+# Generated example output
+examples/out/
 
 # Editor / OS
 .DS_Store
 .claude/
 .idea/
 .vscode/
-examples/
-misc/
+
+# Claude artifact downloads
+*.dc.html

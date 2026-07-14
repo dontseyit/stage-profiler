@@ -206,6 +206,15 @@ restyle via the CSS classes, or fork `theme.py`.
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e '.[dev]'
 pytest
+python examples/demo.py            # renders the bundled sample route → examples/out/
+```
+
+A synthetic [`sample.gpx`](sample.gpx) ships with the repo, so the CLI and `examples/demo.py`
+run out of the box:
+
+```bash
+stage-profiler profile sample.gpx --start-town Valdorée --finish-town "Mont Sample" \
+  --climb "Col du Démo:49:1" --climb "Côte de l'Exemple:91:2" --sprint 63 -o sample.svg
 ```
 
 ---
@@ -224,5 +233,6 @@ src/stage_profiler/
   cli.py        command-line interface (profile / map subcommands)
 scripts/
   generate_roadbook.py   batch profile + map posters from a manifest or GPX folder
-tests/          pytest suite
+examples/demo.py   render the bundled sample.gpx to a profile (+ map)
+tests/             pytest suite
 ```
