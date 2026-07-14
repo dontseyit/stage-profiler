@@ -1,8 +1,9 @@
 """The roadbook design system — one baked-in look, no options.
 
 A stage *profile* and a stage *map* render as two views of the same system: the same
-paper, the same ink, the single green accent, and one condensed display face. Steepness
-is that one green at three fixed opacities — there is no multi-hue ramp.
+paper, the same ink, one type family. The profile silhouette wears the race accent as a
+flat print tint (:data:`ACCENT` when the data gives none); badges, rules and type stay ink
+so any accent works.
 
 Fonts are referenced, not embedded: the host page must load **Jost** (and, for PNG output,
 it must be installed) for the type to render as designed.
@@ -42,7 +43,7 @@ INK = "#1A1917"        # elevation line, primary labels
 INK_SOFT = "#4B4840"   # climb names
 INK_MUTE = "#4B4840"   # elevations, secondary labels
 
-# ── Accent (map pins) ─────────────────────────────────────────────────────────
+# ── Accent (map pins + the default profile-silhouette tint) ──────────────────
 ACCENT = "#F2C200"
 BAND_OPACITY = (0.14, 0.40, 1.0)
 

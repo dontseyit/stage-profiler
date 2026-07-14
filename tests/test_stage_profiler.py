@@ -14,13 +14,14 @@ from stage_profiler import (
     Series,
     StageProfile,
     build_series,
+    clip_series,
     parse_gpx,
     prettify_name,
     steepness_bands,
 )
 from stage_profiler.render import HEIGHT, WIDTH
 from stage_profiler.steepness import MIN_BAND_M
-from stage_profiler.theme import BACKGROUND, BAND_COLORS
+from stage_profiler.theme import ACCENT, BACKGROUND
 
 SIMPLE_GPX = """<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
@@ -82,6 +83,38 @@ def test_build_series_requires_two_points():
         build_series(parse_gpx(SIMPLE_GPX)[:1])
 
 
+# --- clip_series (shorten a route from the end) -------------------------------
+
+def test_clip_series_truncates_and_recomputes_metrics():
+    s = _series([(0, 0), (1000, 100), (2000, 200), (3000, 150)])
+    c = clip_series(s, 1500)
+    assert c.metrics.total_distance_m == 1500
+    assert c.samples[-1].distance_m == 1500
+    assert c.samples[-1].elevation_m == pytest.approx(150)  # interpolated at 1500 m
+    assert c.metrics.max_ele_m == 150            # the 200 m peak beyond 1500 m is cut
+    assert c.metrics.ascent_m == pytest.approx(150)
+
+
+def test_clip_series_is_noop_at_or_beyond_route_length():
+    s = _series([(0, 0), (1000, 100), (2000, 200)])
+    assert clip_series(s, 2000) is s
+    assert clip_series(s, 9999) is s
+
+
+def test_clip_series_rejects_nonpositive_length():
+    s = _series([(0, 0), (1000, 100)])
+    with pytest.raises(ValueError):
+        clip_series(s, 0)
+
+
+def test_length_km_clips_profile_metrics_and_drawn_finish():
+    full = StageProfile.from_gpx(SIMPLE_GPX).metrics.total_distance_km
+    p = StageProfile.from_gpx(SIMPLE_GPX, finish_town="Bormio", length_km=0.2)
+    assert p.metrics.total_distance_km == pytest.approx(0.2)
+    assert p.metrics.total_distance_km < full
+    assert "0.2 KM" in p.render()   # the finish marker reflects the clipped length
+
+
 # --- steepness bands ----------------------------------------------------------
 
 def test_flat_route_is_all_gentle():
@@ -124,14 +157,49 @@ def test_render_is_valid_svg_at_fixed_size():
     root = ET.fromstring(_profile())
     assert root.get("viewBox") == f"0 0 {WIDTH} {HEIGHT}"
     assert root.get("class") == "stage-profile"
+    assert (WIDTH, HEIGHT) == (640, 192)   # the canvas is a fixed 10:3 banner by design
 
 
-def test_render_has_bands_line_and_markers():
+def test_render_has_silhouette_line_and_markers():
     svg = _profile()
-    assert 'class="sp-band"' in svg and any(c in svg for c in BAND_COLORS)
+    assert 'class="sp-fill"' in svg and ACCENT in svg   # accent-tinted silhouette
     assert 'class="sp-line"' in svg and "polyline" in svg
     assert 'class="sp-baseline"' in svg
-    assert 'class="sp-finish"' in svg   # finish marker (the start has none)
+    assert 'class="sp-start"' in svg    # départ pennant
+    assert 'class="sp-finish"' in svg   # checkered arrivée flag
+
+
+def test_accent_from_data_tints_the_silhouette():
+    svg = StageProfile.from_gpx(SIMPLE_GPX, accent="#E4002B").render()
+    assert 'fill="#E4002B"' in svg and ACCENT not in svg
+
+
+def test_climb_category_draws_the_summit_badge():
+    svg = StageProfile.from_gpx(
+        SIMPLE_GPX, climbs=[Climb("Mortirolo", 0.15, "HC")],
+    ).render()
+    assert 'class="sp-cat"' in svg and ">HC</text>" in svg
+
+
+def test_uncategorised_climb_has_altitude_but_no_badge():
+    svg = _profile()   # Mortirolo carries no category
+    assert 'class="sp-climb-ele"' in svg
+    assert 'class="sp-cat"' not in svg
+
+
+def test_invalid_climb_category_raises():
+    with pytest.raises(ValueError):
+        Climb("Mortirolo", 55, "5")
+
+
+def test_sprint_is_marked_on_the_route_line():
+    svg = StageProfile.from_gpx(SIMPLE_GPX, sprints=[0.15]).render()
+    assert 'class="sp-sprint"' in svg and ">S</text>" in svg
+
+
+def test_km_scale_ticks_along_the_foot():
+    svg = _profile()
+    assert 'class="sp-scale"' in svg
 
 
 def test_render_labels_towns_uppercase_climbs_letter_case():
@@ -141,9 +209,9 @@ def test_render_labels_towns_uppercase_climbs_letter_case():
     assert " M<" in svg or "M</text>" in svg         # elevation unit
 
 
-def test_render_has_no_axes_or_header():
+def test_render_has_no_header_or_title():
     svg = _profile()
-    assert "sp-tick" not in svg and "STAGE PROFILE" not in svg  # no axes / header
+    assert "STAGE PROFILE" not in svg and "TIRANO BORMIO" not in svg  # name is never drawn
 
 
 def test_render_shows_finish_distance_only():

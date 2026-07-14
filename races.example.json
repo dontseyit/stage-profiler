@@ -2,28 +2,66 @@
   "output_dir": "build",
   "races": [
     {
-      "gpx": "stage-4-course.gpx",
+      "gpx": "stage-1-parcours.gpx",
+      "name": "Barcelona - Barcelona",
+      "start_town": "Barcelona",
+      "finish_town": "Barcelona",
+      "sprints": [],
+      "length_km": 19.6,
+      "climbs": [
+        { "name": "Côte de Monjuic", "km": 17}
+      ]
+    },
+    {
+      "gpx": "stage-2-parcours.gpx",
+      "name": "Tarragona - Barcelona",
+      "start_town": "Tarragona",
+      "finish_town": "Barcelona",
+      "sprints": [85.6],
+      "length_km": 168.5,
+      "climbs": [
+        { "name": "Côte de Begues", "km": 94.2, "category": "3" },
+        { "name": "Côte du Château de Montjuïc x3", "km": 141.6, "category": "3" }
+      ]
+    },
+    {
+      "gpx": "stage-3-parcours.gpx",
+      "name": "Granollers - Les Angles",
+      "start_town": "Granollers",
+      "finish_town": "Les Angles",
+      "sprints": [98.4],
+      "length_km": 195.9,
+      "climbs": [
+        { "name": "Côte de Saint Feliu de Codines", "km": 17.2, "category": "3" },
+        { "name": "Col de Toses", "km": 127.7, "category": "1" },
+        { "name": "Col du Calvaire", "km": 172.3, "category": "3" },
+        { "name": "Les Angles", "km": 195.9, "category": "3" }
+      ]
+    },
+    {
+      "gpx": "stage-4-parcours.gpx",
       "name": "Carcassonne — Foix",
       "start_town": "Carcassonne",
       "finish_town": "Foix",
+      "sprints": [93.4],
+      "length_km": 181.9,
       "climbs": [
-        { "name": "Col de Bedos", "km": 48.2 },
-        { "name": "Col de Paradis", "km": 64.9 },
-        { "name": "Col de Coudons", "km": 104.9 },
-        { "name": "Col de Montsegur", "km": 146.7 }
-      ],
-      "map": {
-        "geojson": "fra.geojson",
-        "start": [2.4362, 43.2006],
-        "end": [1.6075, 42.9640]
-      }
+        { "name": "Col de Bedos", "km": 48.2, "category": "4" },
+        { "name": "Col de Paradis", "km": 64.9, "category": "3" },
+        { "name": "Col de Coudons", "km": 104.9, "category": "2" },
+        { "name": "Col de Montsegur", "km": 146.7, "category": "1" }
+      ]
     },
     {
-      "gpx": "stage-5-course.gpx",
-      "name": "Lannemezan — Pau",
+      "gpx": "stage-5-parcours.gpx",
+      "name": "Lannemezan - Pau",
       "start_town": "Lannemezan",
       "finish_town": "Pau",
-      "climbs": []
+      "sprints": [113.5],
+      "length_km": 158.3,
+      "climbs": [
+        { "name": "Côte de Baleix", "km": 132.7, "category": "3" }
+      ]
     }
   ]
 }

@@ -22,14 +22,18 @@ __all__ = ["main"]
 
 
 def _climb(spec: str) -> Climb:
-    """Parse a ``"Name:km"`` climb spec (km is the summit's distance along the route)."""
+    """Parse a ``"Name:km"`` or ``"Name:km:category"`` climb spec (km is the summit's
+    distance along the route; category is ``HC`` or ``1``–``4``)."""
     name, _, km = spec.rpartition(":")
+    category = ""
+    if km.upper() in ("HC", "1", "2", "3", "4") and ":" in name:
+        category, (name, _, km) = km.upper(), name.rpartition(":")
     if not name or not km:
-        raise argparse.ArgumentTypeError(f"climb must be 'Name:km', got {spec!r}")
+        raise argparse.ArgumentTypeError(f"climb must be 'Name:km[:category]', got {spec!r}")
     try:
-        return Climb(name.strip(), float(km))
-    except ValueError:
-        raise argparse.ArgumentTypeError(f"climb km must be a number, got {km!r}")
+        return Climb(name.strip(), float(km), category)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(str(exc))
 
 
 def _add_profile_parser(sub: "argparse._SubParsersAction") -> None:
@@ -39,8 +43,16 @@ def _add_profile_parser(sub: "argparse._SubParsersAction") -> None:
     p.add_argument("--name", help="Override the route title (used for reporting only)")
     p.add_argument("--start-town", default="", help="Start town label")
     p.add_argument("--finish-town", default="", help="Finish town label")
-    p.add_argument("--climb", action="append", type=_climb, default=[], metavar="NAME:KM",
-                   help="A named climb over its summit km (repeatable)")
+    p.add_argument("--climb", action="append", type=_climb, default=[], metavar="NAME:KM[:CAT]",
+                   help="A named climb over its summit km, with an optional UCI category "
+                        "(HC, 1-4), e.g. 'Mortirolo:55:HC' (repeatable)")
+    p.add_argument("--sprint", action="append", type=float, default=[], metavar="KM",
+                   help="An intermediate sprint at this km (repeatable)")
+    p.add_argument("--accent", default="", metavar="HEX",
+                   help="Race colour tinting the silhouette, e.g. '#E4002B'")
+    p.add_argument("--length", type=float, metavar="KM",
+                   help="Draw only the first KM of the route (clip the tail; that point "
+                        "becomes the finish) — for stages shorter than their GPX")
     p.add_argument("--metrics", action="store_true", help="Also print route metrics as JSON to stderr")
     p.set_defaults(func=_run_profile)
 
@@ -85,12 +97,16 @@ def _run_profile(args: argparse.Namespace) -> int:
         if args.gpx == "-":
             profile = StageProfile.from_gpx(
                 sys.stdin.read(), name=args.name,
-                start_town=args.start_town, finish_town=args.finish_town, climbs=args.climb,
+                start_town=args.start_town, finish_town=args.finish_town,
+                climbs=args.climb, sprints=args.sprint, accent=args.accent,
+                length_km=args.length,
             )
         else:
             profile = StageProfile.from_file(
                 args.gpx, name=args.name,
-                start_town=args.start_town, finish_town=args.finish_town, climbs=args.climb,
+                start_town=args.start_town, finish_town=args.finish_town,
+                climbs=args.climb, sprints=args.sprint, accent=args.accent,
+                length_km=args.length,
             )
     except (ValueError, OSError) as exc:
         print(f"stage-profiler: error: {exc}", file=sys.stderr)

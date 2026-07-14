@@ -23,9 +23,12 @@ Manifest format (paths resolve relative to the manifest file)::
           "name": "Carcassonne — Foix",         # optional — title (falls back to GPX/filename)
           "start_town": "Carcassonne",          # profile + map start label
           "finish_town": "Foix",                # profile + map finish label
+          "accent": "#E4002B",                  # optional — race colour tinting the profile
+          "sprints": [88.4],                    # optional — intermediate sprints (km)
+          "length_km": 172,                     # optional — clip the route here (drawn finish)
           "climbs": [                           # named climbs, labelled over their summit km
-            { "name": "Port de Lers", "km": 118 },
-            { "name": "Mur de Péguère", "km": 147 }
+            { "name": "Port de Lers", "km": 118, "category": "1" },
+            { "name": "Mur de Péguère", "km": 147, "category": "2" }
           ],
           "map": {                              # optional — omit for a profile-only race
             "geojson": "fra.geojson",
@@ -90,6 +93,9 @@ class RaceSpec:
     start_town: str = ""
     finish_town: str = ""
     climbs: "tuple[Climb, ...]" = ()
+    sprints: "tuple[float, ...]" = ()
+    accent: str = ""
+    length_km: "float | None" = None
     map: "MapSpec | None" = None
 
 
@@ -120,13 +126,36 @@ def _coord(value: object) -> "LonLat | None":
 
 
 def _climbs(value: object, gpx: str) -> "tuple[Climb, ...]":
-    """Validate a manifest ``climbs`` list of ``{name, km}`` entries."""
+    """Validate a manifest ``climbs`` list of ``{name, km[, category]}`` entries."""
     climbs: "list[Climb]" = []
     for entry in value or []:
         if not (isinstance(entry, dict) and "name" in entry and "km" in entry):
             raise ValueError(f"{gpx}: each climb needs 'name' and 'km', got {entry!r}")
-        climbs.append(Climb(str(entry["name"]), float(entry["km"])))
+        try:
+            climbs.append(Climb(str(entry["name"]), float(entry["km"]),
+                                str(entry.get("category", "")).upper()))
+        except ValueError as exc:
+            raise ValueError(f"{gpx}: {exc}") from exc
     return tuple(climbs)
+
+
+def _sprints(value: object, gpx: str) -> "tuple[float, ...]":
+    """Validate a manifest ``sprints`` list of km numbers."""
+    sprints: "list[float]" = []
+    for entry in value or []:
+        if isinstance(entry, bool) or not isinstance(entry, (int, float)):
+            raise ValueError(f"{gpx}: each sprint must be a km number, got {entry!r}")
+        sprints.append(float(entry))
+    return tuple(sprints)
+
+
+def _length_km(value: object, gpx: str) -> "float | None":
+    """Validate an optional manifest ``length_km`` (positive number, km)."""
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or value <= 0:
+        raise ValueError(f"{gpx}: 'length_km' must be a positive number, got {value!r}")
+    return float(value)
 
 
 def _race_from_dict(entry: dict, base: Path) -> RaceSpec:
@@ -155,6 +184,9 @@ def _race_from_dict(entry: dict, base: Path) -> RaceSpec:
         start_town=entry.get("start_town", ""),
         finish_town=entry.get("finish_town", ""),
         climbs=_climbs(entry.get("climbs"), gpx),
+        sprints=_sprints(entry.get("sprints"), gpx),
+        accent=str(entry.get("accent", "")),
+        length_km=_length_km(entry.get("length_km"), gpx),
         map=map_spec,
     )
 
@@ -211,7 +243,9 @@ def render_race(race: RaceSpec, out_dir: Path, stem: str) -> Result:
 
     profile = StageProfile.from_file(
         race.gpx, name=race.name,
-        start_town=race.start_town, finish_town=race.finish_town, climbs=race.climbs,
+        start_town=race.start_town, finish_town=race.finish_town,
+        climbs=race.climbs, sprints=race.sprints, accent=race.accent,
+        length_km=race.length_km,
     )
     result = Result(name=profile.name, metrics=profile.metrics)
 

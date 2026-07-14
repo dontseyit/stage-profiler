@@ -14,6 +14,7 @@ __all__ = [
     "Series",
     "haversine_m",
     "build_series",
+    "clip_series",
     "moving_average",
     "nice_tick_step",
 ]
@@ -87,34 +88,58 @@ def build_series(points: "list[Point]") -> Series:
             elevations.append(p.ele)
 
     cumulative = 0.0
+    samples: "list[Sample]" = []
+    for i in range(len(points)):
+        if i > 0:
+            cumulative += haversine_m(points[i - 1], points[i])
+        samples.append(Sample(cumulative, elevations[i]))
+
+    return Series(samples=samples, metrics=_metrics_from_samples(samples))
+
+
+def _metrics_from_samples(samples: "list[Sample]") -> RouteMetrics:
+    """Compute :class:`RouteMetrics` for an already-sampled route (distance + elevation)."""
     ascent = 0.0
     descent = 0.0
     min_ele = math.inf
     max_ele = -math.inf
-    samples: "list[Sample]" = []
-
-    for i in range(len(points)):
-        ele = elevations[i]
+    for i, s in enumerate(samples):
         if i > 0:
-            cumulative += haversine_m(points[i - 1], points[i])
-            d_ele = elevations[i] - elevations[i - 1]
+            d_ele = s.elevation_m - samples[i - 1].elevation_m
             if d_ele > 0:
                 ascent += d_ele
             else:
                 descent += -d_ele
-        min_ele = min(min_ele, ele)
-        max_ele = max(max_ele, ele)
-        samples.append(Sample(cumulative, ele))
-
-    metrics = RouteMetrics(
-        total_distance_m=cumulative,
+        min_ele = min(min_ele, s.elevation_m)
+        max_ele = max(max_ele, s.elevation_m)
+    return RouteMetrics(
+        total_distance_m=samples[-1].distance_m,
         ascent_m=ascent,
         descent_m=descent,
         min_ele_m=min_ele,
         max_ele_m=max_ele,
         max_gradient_pct=_max_sustained_gradient(samples),
     )
-    return Series(samples=samples, metrics=metrics)
+
+
+def clip_series(series: Series, length_m: float) -> Series:
+    """Clip a route to its first ``length_m`` metres, treating that point as the finish.
+
+    Used when the drawn stage is shorter than the recorded GPX (a neutral start zone or GPS
+    overrun): the tail beyond ``length_m`` is dropped, a final sample is interpolated exactly
+    at ``length_m``, and metrics (distance, ascent, altitudes, gradient) are recomputed for
+    the shortened route. ``length_m`` at or beyond the route's length returns it unchanged;
+    a non-positive length raises :class:`ValueError`.
+    """
+    if length_m <= 0:
+        raise ValueError(f"clip length must be positive, got {length_m}.")
+    if length_m >= series.metrics.total_distance_m:
+        return series
+    ds = [s.distance_m for s in series.samples]
+    es = [s.elevation_m for s in series.samples]
+    kept = [s for s in series.samples if s.distance_m < length_m]
+    kept.append(Sample(length_m, ele_at(ds, es, length_m)))
+    return Series(samples=kept, metrics=_metrics_from_samples(kept))
 
 
 def _max_sustained_gradient(samples: "list[Sample]", window_m: float = 100.0) -> float:

@@ -4,11 +4,13 @@ A roadbook toolkit with two visuals that share **one baked-in design language** 
 segmented steepness-band **stage profile** and a soft **stage map**, both driven by data
 (no styling options):
 
-- **`StageProfile`** — turn a `.gpx` route into a **stage-profile SVG**, styled like a Tour
-  roadbook: the elevation line in ink over the area painted in a single green at three
-  steepness opacities, named climbs labelled over their summits (with leaders), start and
-  finish **corner blocks** (town · elevation · a green start flag / checkered finish flag),
-  and the distance along the foot (`0 … total km`). No axes, no header.
+- **`StageProfile`** — turn a `.gpx` route into a **stage-profile SVG** in the manner of
+  the official Grand-Tour roadbook: the elevation silhouette tinted with the race colour
+  under a bold ink outline, categorised climbs over their summits (ink **HC/1–4 badge** ·
+  altitude · name, on location rules that run down through the mountain), intermediate
+  **sprints** on the route line, start/finish towns + elevations at the corners bookended
+  by a **départ pennant** and a **checkered finish flag**, and a **km scale** along the
+  foot. No header — the route is the chart.
 - **`StageMap`** — turn a country **GeoJSON** into a **stage-map SVG**: the outline
   simplified into soft land, with a hollow-green **start** ring and a solid-green **finish**
   dot, each labelled with its town + elevation.
@@ -19,10 +21,13 @@ from stage_profiler import StageProfile, Climb
 profile = StageProfile.from_file(
     "stage.gpx",
     start_town="Tirano", finish_town="Bormio",
-    climbs=[Climb("Mortirolo", 55), Climb("Foscagno", 140)],   # name + summit km
+    climbs=[Climb("Mortirolo", 55, "HC"), Climb("Foscagno", 140, "2")],  # name·km·category
+    sprints=[88.4],                    # intermediate sprints (km)
+    accent="#E4108C",                  # race colour tinting the silhouette (optional)
+    length_km=172,                     # clip a long GPX to the real stage length (optional)
 )
 print(profile.metrics.to_dict())      # {'total_distance_km': 182.2, 'ascent_m': ..., ...}
-svg = profile.render()                 # 840×300, transparent
+svg = profile.render()                 # 640×192 (10:3) banner
 ```
 
 ```python
@@ -62,15 +67,21 @@ Requires Python 3.9+. Installing pulls in **shapely** and **pyproj** (used by `S
 
 | Method / property | Description |
 | --- | --- |
-| `StageProfile.from_file(path, *, name=None, start_town="", finish_town="", climbs=())` | Parse a `.gpx` file. |
+| `StageProfile.from_file(path, *, name=None, start_town="", finish_town="", climbs=(), sprints=(), accent="", length_km=None)` | Parse a `.gpx` file. |
 | `StageProfile.from_gpx(text, *, ...)` | Parse GPX XML already in memory. Same keywords. |
 | `.metrics` | A `RouteMetrics` (`total_distance_km`, `ascent_m`, `max_gradient_pct`, …). |
 | `.start_ele` / `.finish_ele` | The route's first / last elevation (m) — used for the end labels. |
-| `.render()` | Return the SVG string. No arguments — the look is fixed. |
+| `.render()` | Return the SVG string. No arguments — the look and the 640×192 (10:3) canvas are fixed; SVG scales losslessly, so size it at display time. |
 
-`climbs` is a sequence of `Climb(name, km)`, each labelled over the summit nearest that
-kilometre. `start_town` / `finish_town` are the labels at the ends (their elevations come
-from the GPX). `name` is kept for filenames/reporting; it is **not** drawn.
+`climbs` is a sequence of `Climb(name, km, category="")`, each labelled over its summit
+km with the UCI category (`"HC"`, `"1"`…`"4"`) drawn as the badge — leave it empty for an
+uncategorised climb. `sprints` are intermediate-sprint kilometres, marked on the route
+line. `accent` is the race colour tinting the silhouette (maillot-jaune yellow when
+empty). `length_km` clips a route that's longer than the real stage (a neutral start zone
+or GPS overrun): the tail is dropped, that point becomes the drawn finish, and the metrics
+are recomputed for the shortened stage. `start_town` / `finish_town` are the labels at the
+ends (their elevations come from the GPX). `name` is kept for filenames/reporting; it is
+**not** drawn.
 
 ### `StageMap`
 
@@ -84,9 +95,10 @@ Any FeatureCollection / Feature / (Multi)Polygon works. `start_ele` / `finish_el
 are shown in the `START · …M` / `FINISH · …M` labels; pass `profile.start_ele` /
 `profile.finish_ele` to keep the two visuals consistent.
 
-The low-level `render_profile_svg(series, *, start_town, finish_town, climbs)` and
-`render_map_svg(rings, start, end, name)` are exported too, if you already have a `Series`
-or flattened rings.
+The low-level `render_profile_svg(series, *, start_town, finish_town, climbs, sprints,
+accent)` and `render_map_svg(rings, start, end, name)` are exported too, if you already
+have a `Series` or flattened rings — as is `clip_series(series, length_m)`, which does the
+`length_km` shortening on a `Series` directly.
 
 ---
 
@@ -96,7 +108,8 @@ or flattened rings.
 # profile — from a GPX route
 stage-profiler profile stage.gpx \
   --start-town Tirano --finish-town Bormio \
-  --climb "Mortirolo:55" --climb "Foscagno:140" -o profile.svg
+  --climb "Mortirolo:55:HC" --climb "Foscagno:140:2" \
+  --sprint 88.4 --accent "#E4108C" -o profile.svg
 cat stage.gpx | stage-profiler profile - --metrics > profile.svg   # read from stdin
 
 # map — from a country GeoJSON
@@ -104,9 +117,10 @@ stage-profiler map ita.geojson --start 10.17 46.22 --end 10.37 46.47 \
   --start-town Tirano --finish-town Bormio --start-ele 440 --finish-ele 1225 -o map.svg
 ```
 
-`profile` flags: `--start-town`, `--finish-town`, `--climb NAME:KM` (repeatable), `--name`,
-`--metrics`. `map` flags: `--start LON LAT`, `--end LON LAT`, `--start-town`,
-`--finish-town`, `--start-ele`, `--finish-ele`, `--name`.
+`profile` flags: `--start-town`, `--finish-town`, `--climb NAME:KM[:CAT]` (repeatable,
+CAT = `HC`/`1`–`4`), `--sprint KM` (repeatable), `--accent HEX`, `--length KM` (clip the
+route to this length), `--name`, `--metrics`. `map` flags: `--start LON LAT`,
+`--end LON LAT`, `--start-town`, `--finish-town`, `--start-ele`, `--finish-ele`, `--name`.
 
 ---
 
@@ -135,9 +149,12 @@ The manifest lists races; every path resolves relative to the manifest file:
       "name": "Carcassonne — Foix",
       "start_town": "Carcassonne",
       "finish_town": "Foix",
+      "accent": "#E4002B",
+      "sprints": [88.4],
+      "length_km": 172,
       "climbs": [
-        { "name": "Port de Lers", "km": 118 },
-        { "name": "Mur de Péguère", "km": 147 }
+        { "name": "Port de Lers", "km": 118, "category": "1" },
+        { "name": "Mur de Péguère", "km": 147, "category": "2" }
       ],
       "map": {
         "geojson": "fra.geojson",
@@ -149,23 +166,27 @@ The manifest lists races; every path resolves relative to the manifest file:
 }
 ```
 
-`start`/`end` are optional (they fall back to the GPX endpoints); omit `map` for a
-profile-only race. A race that fails is logged and skipped so the rest still render.
+`accent`, `sprints`, `length_km` and each climb's `category` are optional, like
+`start`/`end` (which fall back to the GPX endpoints); omit `map` for a profile-only race.
+`length_km` clips a route longer than the real stage to that distance (the drawn finish).
+A race that fails is logged and skipped so the rest still render.
 
 ---
 
 ## Fonts & theming
 
 **Fonts are referenced, not embedded**, so SVGs stay small. Inline the SVG in a page that
-loads **Jost** (the single family used across both visuals) and the type renders as designed. Every element carries a class for CSS theming — `sp-*` on the
-profile (`sp-line`, `sp-band`, `sp-climb`, `sp-town`, `sp-start`, `sp-finish`, …) and `sm-*`
-on the map (`sm-land`, `sm-marker`, `sm-label`, …). Profile elements also carry `sp-climb`,
-`sp-leader`, `sp-town`, `sp-ele`, `sp-start`, `sp-finish`, and `sp-dist`.
+loads **Jost** (the single family used across both visuals) and the type renders as
+designed. Every element carries a class for CSS theming — `sp-*` on the profile
+(`sp-fill`, `sp-line`, `sp-climb`, `sp-cat`, `sp-sprint`, `sp-leader`, `sp-scale`,
+`sp-town`, `sp-ele`, `sp-dist`, `sp-start`, `sp-finish`, …) and `sm-*` on the map (`sm-land`,
+`sm-marker`, `sm-label`, …).
 
 The palette and type live in [`theme.py`](src/stage_profiler/theme.py). The profile is
-**Bauhaus**: steepness is painted in the three primaries (`BAND_COLORS` — blue → yellow → red,
-cool to hot) over a bold black line and baseline. The two gradient cut points (**4 %**
-moderate, **8 %** steep) live in [`steepness.py`](src/stage_profiler/steepness.py).
+the **printed roadbook**: the silhouette wears the race `accent` as a flat tint (the
+default is maillot-jaune `ACCENT`) under a bold ink outline; the climb badges, rules and
+type stay ink so any accent works. The look is fixed by design — restyle via the CSS
+classes, or fork `theme.py`.
 
 ---
 

@@ -1,0 +1,277 @@
+{
+  "output_dir": "build",
+  "races": [
+    {
+      "gpx": "stage-1-parcours.gpx",
+      "name": "Barcelona - Barcelona",
+      "start_town": "Barcelona",
+      "finish_town": "Barcelona",
+      "sprints": [],
+      "length_km": 19.6,
+      "climbs": [
+        { "name": "Côte de Monjuic", "km": 17}
+      ]
+    },
+    {
+      "gpx": "stage-2-parcours.gpx",
+      "name": "Tarragona - Barcelona",
+      "start_town": "Tarragona",
+      "finish_town": "Barcelona",
+      "sprints": [85.6],
+      "length_km": 168.5,
+      "climbs": [
+        { "name": "Côte de Begues", "km": 94.2, "category": "3" },
+        { "name": "Côte du Château de Montjuïc", "km": 141.6, "category": "3" },
+        { "name": "Côte du Château de Montjuïc", "km": 153.8, "category": "3" },
+        { "name": "Côte du Château de Montjuïc", "km": 166, "category": "3" }
+      ]
+    },
+    {
+      "gpx": "stage-3-parcours.gpx",
+      "name": "Granollers - Les Angles",
+      "start_town": "Granollers",
+      "finish_town": "Les Angles",
+      "sprints": [98.4],
+      "length_km": 195.9,
+      "climbs": [
+        { "name": "Côte de Saint Feliu de Codines", "km": 17.2, "category": "3" },
+        { "name": "Col de Toses", "km": 127.7, "category": "1" },
+        { "name": "Col du Calvaire", "km": 172.3, "category": "3" },
+        { "name": "Les Angles", "km": 195.9, "category": "3" }
+      ]
+    },
+    {
+      "gpx": "stage-4-parcours.gpx",
+      "name": "Carcassonne — Foix",
+      "start_town": "Carcassonne",
+      "finish_town": "Foix",
+      "sprints": [93.4],
+      "length_km": 181.9,
+      "climbs": [
+        { "name": "Col de Bedos", "km": 48.2, "category": "4" },
+        { "name": "Col de Paradis", "km": 64.9, "category": "3" },
+        { "name": "Col de Coudons", "km": 104.9, "category": "2" },
+        { "name": "Col de Montsegur", "km": 146.7, "category": "1" }
+      ]
+    },
+    {
+      "gpx": "stage-5-parcours.gpx",
+      "name": "Lannemezan - Pau",
+      "start_town": "Lannemezan",
+      "finish_town": "Pau",
+      "sprints": [113.5],
+      "length_km": 158.3,
+      "climbs": [
+        { "name": "Côte de Baleix", "km": 132.7, "category": "3" }
+      ]
+    },
+    {
+      "gpx": "stage-6-parcours.gpx",
+      "name": "Pau - Gavarnie-Cèdre",
+      "start_town": "Carcassonne",
+      "finish_town": "Foix",
+      "sprints": [88.4],
+      "climbs": [
+        { "name": "Col de Bedos", "km": 48.2, "category": "4" },
+        { "name": "Col de Paradis", "km": 64.9, "category": "3" },
+        { "name": "Col de Coudons", "km": 104.9, "category": "2" },
+        { "name": "Col de Montsegur", "km": 146.7, "category": "1" }
+      ]
+    },
+    {
+      "gpx": "stage-7-parcours.gpx",
+      "name": "Hagetmau - Bordeaux",
+      "start_town": "Carcassonne",
+      "finish_town": "Foix",
+      "sprints": [88.4],
+      "climbs": [
+        { "name": "Col de Bedos", "km": 48.2, "category": "4" },
+        { "name": "Col de Paradis", "km": 64.9, "category": "3" },
+        { "name": "Col de Coudons", "km": 104.9, "category": "2" },
+        { "name": "Col de Montsegur", "km": 146.7, "category": "1" }
+      ]
+    },
+    {
+      "gpx": "stage-8-parcours.gpx",
+      "name": "Périgueux - Bergerac",
+      "start_town": "Carcassonne",
+      "finish_town": "Foix",
+      "sprints": [88.4],
+      "climbs": [
+        { "name": "Col de Bedos", "km": 48.2, "category": "4" },
+        { "name": "Col de Paradis", "km": 64.9, "category": "3" },
+        { "name": "Col de Coudons", "km": 104.9, "category": "2" },
+        { "name": "Col de Montsegur", "km": 146.7, "category": "1" }
+      ]
+    },
+    {
+      "gpx": "stage-9-parcours.gpx",
+      "name": "Malemort - Ussel",
+      "start_town": "Carcassonne",
+      "finish_town": "Foix",
+      "sprints": [88.4],
+      "climbs": [
+        { "name": "Col de Bedos", "km": 48.2, "category": "4" },
+        { "name": "Col de Paradis", "km": 64.9, "category": "3" },
+        { "name": "Col de Coudons", "km": 104.9, "category": "2" },
+        { "name": "Col de Montsegur", "km": 146.7, "category": "1" }
+      ]
+    },
+    {
+      "gpx": "stage-10-parcours.gpx",
+      "name": "Aurillac - Le Lioran",
+      "start_town": "Carcassonne",
+      "finish_town": "Foix",
+      "sprints": [88.4],
+      "climbs": [
+        { "name": "Col de Bedos", "km": 48.2, "category": "4" },
+        { "name": "Col de Paradis", "km": 64.9, "category": "3" },
+        { "name": "Col de Coudons", "km": 104.9, "category": "2" },
+        { "name": "Col de Montsegur", "km": 146.7, "category": "1" }
+      ]
+    },
+    {
+      "gpx": "stage-11-parcours.gpx",
+      "name": "Vicky - Nevers",
+      "start_town": "Carcassonne",
+      "finish_town": "Foix",
+      "sprints": [88.4],
+      "climbs": [
+        { "name": "Col de Bedos", "km": 48.2, "category": "4" },
+        { "name": "Col de Paradis", "km": 64.9, "category": "3" },
+        { "name": "Col de Coudons", "km": 104.9, "category": "2" },
+        { "name": "Col de Montsegur", "km": 146.7, "category": "1" }
+      ]
+    },
+    {
+      "gpx": "stage-12-parcours.gpx",
+      "name": "Magny-Cours - Châlon-sur-Saône",
+      "start_town": "Carcassonne",
+      "finish_town": "Foix",
+      "sprints": [88.4],
+      "climbs": [
+        { "name": "Col de Bedos", "km": 48.2, "category": "4" },
+        { "name": "Col de Paradis", "km": 64.9, "category": "3" },
+        { "name": "Col de Coudons", "km": 104.9, "category": "2" },
+        { "name": "Col de Montsegur", "km": 146.7, "category": "1" }
+      ]
+    },
+    {
+      "gpx": "stage-13-parcours.gpx",
+      "name": "Dole - Belfort",
+      "start_town": "Carcassonne",
+      "finish_town": "Foix",
+      "sprints": [88.4],
+      "climbs": [
+        { "name": "Col de Bedos", "km": 48.2, "category": "4" },
+        { "name": "Col de Paradis", "km": 64.9, "category": "3" },
+        { "name": "Col de Coudons", "km": 104.9, "category": "2" },
+        { "name": "Col de Montsegur", "km": 146.7, "category": "1" }
+      ]
+    },
+    {
+      "gpx": "stage-14-parcours.gpx",
+      "name": "Mulhouse - Le Markstein",
+      "start_town": "Carcassonne",
+      "finish_town": "Foix",
+      "sprints": [88.4],
+      "climbs": [
+        { "name": "Col de Bedos", "km": 48.2, "category": "4" },
+        { "name": "Col de Paradis", "km": 64.9, "category": "3" },
+        { "name": "Col de Coudons", "km": 104.9, "category": "2" },
+        { "name": "Col de Montsegur", "km": 146.7, "category": "1" }
+      ]
+    },
+    {
+      "gpx": "stage-15-parcours.gpx",
+      "name": "Champagnole - Plateau de Solaison",
+      "start_town": "Carcassonne",
+      "finish_town": "Foix",
+      "sprints": [88.4],
+      "climbs": [
+        { "name": "Col de Bedos", "km": 48.2, "category": "4" },
+        { "name": "Col de Paradis", "km": 64.9, "category": "3" },
+        { "name": "Col de Coudons", "km": 104.9, "category": "2" },
+        { "name": "Col de Montsegur", "km": 146.7, "category": "1" }
+      ]
+    },
+    {
+      "gpx": "stage-16-parcours.gpx",
+      "name": "Evian-les-Bains - Thonon-les-Bains",
+      "start_town": "Carcassonne",
+      "finish_town": "Foix",
+      "sprints": [88.4],
+      "climbs": [
+        { "name": "Col de Bedos", "km": 48.2, "category": "4" },
+        { "name": "Col de Paradis", "km": 64.9, "category": "3" },
+        { "name": "Col de Coudons", "km": 104.9, "category": "2" },
+        { "name": "Col de Montsegur", "km": 146.7, "category": "1" }
+      ]
+    },
+    {
+      "gpx": "stage-17-parcours.gpx",
+      "name": "Chambéry - Voiron",
+      "start_town": "Carcassonne",
+      "finish_town": "Foix",
+      "sprints": [88.4],
+      "climbs": [
+        { "name": "Col de Bedos", "km": 48.2, "category": "4" },
+        { "name": "Col de Paradis", "km": 64.9, "category": "3" },
+        { "name": "Col de Coudons", "km": 104.9, "category": "2" },
+        { "name": "Col de Montsegur", "km": 146.7, "category": "1" }
+      ]
+    },
+    {
+      "gpx": "stage-18-parcours.gpx",
+      "name": "Voiron - Orcières-Merlette",
+      "start_town": "Carcassonne",
+      "finish_town": "Foix",
+      "sprints": [88.4],
+      "climbs": [
+        { "name": "Col de Bedos", "km": 48.2, "category": "4" },
+        { "name": "Col de Paradis", "km": 64.9, "category": "3" },
+        { "name": "Col de Coudons", "km": 104.9, "category": "2" },
+        { "name": "Col de Montsegur", "km": 146.7, "category": "1" }
+      ]
+    },
+    {
+      "gpx": "stage-19-parcours.gpx",
+      "name": "Gap - Alpe d'Huez",
+      "start_town": "Carcassonne",
+      "finish_town": "Foix",
+      "sprints": [88.4],
+      "climbs": [
+        { "name": "Col de Bedos", "km": 48.2, "category": "4" },
+        { "name": "Col de Paradis", "km": 64.9, "category": "3" },
+        { "name": "Col de Coudons", "km": 104.9, "category": "2" },
+        { "name": "Col de Montsegur", "km": 146.7, "category": "1" }
+      ]
+    },
+    {
+      "gpx": "stage-20-parcours.gpx",
+      "name": "Bourg d'Oissans - Alpe d'Huez",
+      "start_town": "Carcassonne",
+      "finish_town": "Foix",
+      "sprints": [88.4],
+      "climbs": [
+        { "name": "Col de Bedos", "km": 48.2, "category": "4" },
+        { "name": "Col de Paradis", "km": 64.9, "category": "3" },
+        { "name": "Col de Coudons", "km": 104.9, "category": "2" },
+        { "name": "Col de Montsegur", "km": 146.7, "category": "1" }
+      ]
+    },
+    {
+      "gpx": "stage-21-parcours.gpx",
+      "name": "Thoiry - Paris",
+      "start_town": "Carcassonne",
+      "finish_town": "Foix",
+      "sprints": [88.4],
+      "climbs": [
+        { "name": "Col de Bedos", "km": 48.2, "category": "4" },
+        { "name": "Col de Paradis", "km": 64.9, "category": "3" },
+        { "name": "Col de Coudons", "km": 104.9, "category": "2" },
+        { "name": "Col de Montsegur", "km": 146.7, "category": "1" }
+      ]
+    }
+  ]
+}
