@@ -1,22 +1,21 @@
 # stage-profiler
 
-A **roadbook generator**: describe your races in a JSON manifest and get back on-brand
-stage posters — a segmented steepness-band **stage profile** and a soft **stage map** — in
-one baked-in design language (no styling options). A manifest in, SVG (and PNG) out:
+A simple *stage profile** generator from GPX file and a configuration. Describe the race assets in a JSON manifest and get back on-brand stage posters (PNG & SVG).
 
 ```bash
-stage-profiler races.json          # → build/  (a profile — and map — per race)
+stage-profiler races.json
 ```
 
 The two visuals:
 
-- **Stage profile** — the elevation silhouette filled with the race colour **segmented by
+- **Stage profile**: the elevation silhouette filled with the race colour **segmented by
   steepness** (darker tones for steeper gradients) under a bold ink outline, categorised
   climbs over their summits (ink **HC/1–4 badge** · altitude · name, on location rules that
   run down through the mountain), intermediate **sprints** on the route line, start/finish
   towns + elevations at the corners bookended by a **départ pennant** and a **checkered
   finish flag**, and a **km scale** along the foot. No header — the route is the chart.
-- **Stage map** — a country outline simplified into soft land, with a hollow-green **start**
+
+- **Stage map** (WIP):  a country outline simplified into soft land, with a hollow-green **start**
   ring and a solid-green **finish** dot, each labelled with its town + elevation.
 
 You only ever supply data; the whole look lives in one place
@@ -64,11 +63,11 @@ stage-profiler examples/races.example.json
 ### The manifest
 
 A manifest is a JSON object with a `races` array; **every path resolves relative to the
-manifest file**. Only `gpx` is required — everything else is optional roadbook data:
+manifest file**. Only `gpx` is required, everything else is optional roadbook data:
 
 ```json
 {
-  "output_dir": "build",
+  "output_dir": "output",
   "races": [
     {
       "gpx": "stage-4-parcours.gpx",
@@ -115,102 +114,29 @@ Per race:
 Point the command at a **folder** instead and it renders a default profile for every `.gpx`
 inside; drop a `races.json` in that folder to attach names / climbs / maps to them.
 
----
-
-## As a library
-
-The command is a thin shell over the package, so everything is importable. `generate()` is
-the whole command in code; the `StageProfile` / `StageMap` classes are the pieces:
-
-```python
-from stage_profiler import generate, StageProfile, Climb
-
-generate("races.json", out="build/", png=False)          # the batch command, in code
-
-profile = StageProfile.from_file(
-    "stage.gpx",
-    start_town="Tirano", finish_town="Bormio",
-    climbs=[Climb("Mortirolo", 55, "HC"), Climb("Foscagno", 140, "2")],  # name·km·category
-    sprints=[88.4],
-    accent="#E4108C",
-    length_km=172,                     # clip a long GPX to the real stage length (optional)
-)
-print(profile.metrics.to_dict())       # {'total_distance_km': 182.2, 'ascent_m': ..., ...}
-svg = profile.render()                  # 640×192 (10:3) SVG string
-```
-
-```python
-from stage_profiler import StageMap
-
-smap = StageMap.from_file(
-    "ita.geojson",
-    start=(10.17, 46.22), end=(10.37, 46.47),
-    start_label="Tirano", end_label="Bormio",
-    start_ele=profile.start_ele, finish_ele=profile.finish_ele,
-)
-map_svg = smap.render()                 # 460×220, transparent
-```
-
-Each `render()` returns a self-contained SVG **string** — cache it, inline it, or serve it.
-
-| Entry point | Description |
-| --- | --- |
-| `generate(source, *, out=None, png=True, scale=2.0)` | The command in code: render a manifest / folder / `.gpx` to posters. Returns an exit code (`0` ok, `1` on any failure). |
-| `StageProfile.from_file(path, *, name=None, start_town="", finish_town="", climbs=(), sprints=(), accent="", length_km=None)` | Parse a `.gpx` into a profile. `from_gpx(text, …)` does the same from XML already in memory. |
-| `StageMap.from_file(path, *, start, end, start_label="", end_label="", start_ele=None, finish_ele=None, name=None)` | Parse a `.geojson` into a map. `start`/`end` are `(lon, lat)`. `from_geojson(obj, …)` accepts a dict / string / path. |
-| `.metrics` · `.start_ele` · `.finish_ele` · `.render()` | Route metrics, endpoint elevations, and the SVG string. `render()` takes no arguments — the look and the 640×192 (10:3) canvas are fixed; SVG scales losslessly, so size it at display time. |
-
-`climbs` is a sequence of `Climb(name, km, category="", offset=0)` — the same fields the
-manifest's `climbs` carry. The lower-level `render_profile_svg(...)` / `render_map_svg(...)`
-and `clip_series(series, length_m)` are exported too, if you already have a `Series` or
-flattened rings.
-
----
 
 ## Fonts & theming
 
 **Fonts are referenced, not embedded**, so SVGs stay small. Inline the SVG in a page that
 loads **Jost** (the single family used across both visuals) and the type renders as
-designed. Every element carries a class for CSS theming — `sp-*` on the profile
-(`sp-fill`, `sp-band`, `sp-line`, `sp-climb`, `sp-cat`, `sp-sprint`, `sp-leader`, `sp-scale`,
-`sp-town`, `sp-ele`, `sp-dist`, `sp-start`, `sp-finish`, …) and `sm-*` on the map (`sm-land`,
-`sm-marker`, `sm-label`, …).
+designed. Every element carries a class for CSS theming.
+- `sp-*` on the profile (`sp-fill`, `sp-band`, `sp-dist`, `sp-start`, `sp-finish`, …
+- `sm-*` on the map (`sm-land`, `sm-marker`, `sm-label`, …).
 
 The palette and type live in [`theme.py`](src/stage_profiler/theme.py). The profile is
 the **printed roadbook**: the silhouette wears the race `accent` (default maillot-jaune
-`ACCENT`), segmented by steepness into the three [`BAND_OPACITY`](src/stage_profiler/theme.py)
-tones — darker for steeper — under a bold ink outline; the climb badges, rules and type
-stay ink so any accent works. The steepness cut points (**4 %** moderate, **8 %** steep)
-live in [`steepness.py`](src/stage_profiler/steepness.py). The look is fixed by design —
-restyle via the CSS classes, or fork `theme.py`.
+`ACCENT`), segmented by steepness into the three [`BAND_OPACITY`](src/stage_profiler/theme.py) tones (darker for steeper) under a bold ink outline; the climb badges, rules and type stay ink so any accent works. The steepness cut points (**4 %** moderate, **8 %** steep) live in [`steepness.py`](src/stage_profiler/steepness.py). The look is fixed by design, restyle via the CSS classes, or fork `theme.py`.
 
----
+## As a library
 
-## Development
+The CLI is a thin shell over the package, so everything is importable. `generate()` is the whole command in code; the `StageProfile` / `StageMap` classes can be used standalone.
+
+# Development
+
+It's a Python project...
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e '.[dev]'
 pytest
-```
-
----
-
-## Layout
-
-```
-src/stage_profiler/
-  gpx.py        parse GPX → points (namespace-agnostic)
-  geometry.py   distances, metrics, sampled series, interpolation
-  steepness.py  segment a route into three steepness bands
-  theme.py      the baked-in palette, type, and SVG text helpers
-  render.py     the stage-profile SVG
-  profile.py    StageProfile + Climb — the profile entry point
-  map.py        StageMap — the map entry point (shapely + pyproj)
-  roadbook.py   the generator — a manifest/folder/.gpx → profile + map posters
-  cli.py        the `stage-profiler` command (a thin shell over roadbook)
-examples/
-  races.example.json   a three-stage manifest (stages 1, 4, 15)
-  stage-*.gpx          their routes
-tests/          pytest suite
 ```

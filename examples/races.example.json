@@ -1,5 +1,5 @@
 {
-  "output_dir": "build",
+  "output_dir": "output",
   "races": [
     {
       "gpx": "stage-1-parcours.gpx",
