@@ -1,17 +1,16 @@
-#!/usr/bin/env python3
-"""Batch roadbook generator — turn a set of races into on-brand stage posters.
+"""The roadbook generator — turn a set of races into on-brand stage posters.
 
-Point this at a **manifest** (JSON) describing your races, or at a **folder** of ``.gpx``
-files, and it writes two visuals per race in the toolkit's baked-in look, each as a
-self-contained SVG *and* a matching PNG (rasterised with ``rsvg-convert``):
+This is the engine behind the ``stage-profiler`` command. Give it a **manifest** (JSON)
+describing your races, a **folder** of ``.gpx`` files, or a **single** ``.gpx``, and it
+writes two visuals per race in the toolkit's baked-in look, each as a self-contained SVG
+*and* a matching PNG (rasterised with ``rsvg-convert``):
 
     {stem}-profile.svg / .png   the segmented steepness-band profile   (from the .gpx)
     {stem}-map.svg / .png       the start/finish stage map             (from a country GeoJSON)
 
-The look lives entirely in the library — this script only supplies the data (route, town
+The look lives entirely in the library — the generator only supplies the data (route, town
 names, named climbs, and the map's country + start/finish). PNG output needs ``rsvg-convert``
-(``brew install librsvg``); without it the script writes SVG only. Pass ``--no-png`` to skip
-it, ``--scale N`` to change the PNG resolution (default 2×).
+(``brew install librsvg``); without it only SVG is written.
 
 Manifest format (paths resolve relative to the manifest file)::
 
@@ -19,7 +18,7 @@ Manifest format (paths resolve relative to the manifest file)::
       "output_dir": "build",
       "races": [
         {
-          "gpx": "stage-4-course.gpx",        # required
+          "gpx": "stage-4-parcours.gpx",       # required
           "name": "Carcassonne — Foix",         # optional — title (falls back to GPX/filename)
           "start_town": "Carcassonne",          # profile + map start label
           "finish_town": "Foix",                # profile + map finish label
@@ -40,16 +39,14 @@ Manifest format (paths resolve relative to the manifest file)::
       ]
     }
 
-Usage::
+Programmatic use mirrors the command::
 
-    python scripts/generate_roadbook.py races.example.json
-    python scripts/generate_roadbook.py races.example.json --out posters/
-    python scripts/generate_roadbook.py path/to/gpx-folder/     # profiles for every .gpx
+    from stage_profiler import generate
+    generate("races.json", out="posters/", png=False)
 """
 
 from __future__ import annotations
 
-import argparse
 import json
 import shutil
 import subprocess
@@ -57,20 +54,22 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+from .geometry import RouteMetrics
+from .gpx import parse_gpx
+from .map import StageMap
+from .profile import Climb, StageProfile
 
-# Make the src-layout package importable when running in-place (no `pip install -e .`).
-sys.path.insert(0, str(ROOT / "src"))
+__all__ = [
+    "MapSpec",
+    "RaceSpec",
+    "Result",
+    "load_manifest",
+    "discover_folder",
+    "render_race",
+    "generate",
+]
 
-from stage_profiler import (  # noqa: E402
-    Climb,
-    RouteMetrics,
-    StageMap,
-    StageProfile,
-    parse_gpx,
-)
-
-LonLat = tuple[float, float]
+LonLat = "tuple[float, float]"
 
 
 # ── Manifest model ────────────────────────────────────────────────────────────
@@ -196,7 +195,7 @@ def _race_from_dict(entry: dict, base: Path) -> RaceSpec:
 
 
 def load_manifest(path: Path) -> "tuple[Path, list[RaceSpec]]":
-    """Parse a manifest file into (output_dir, races)."""
+    """Parse a manifest file into ``(output_dir, races)``."""
     data = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(data, dict):
         raise ValueError("manifest must be a JSON object with a 'races' array")
@@ -216,6 +215,18 @@ def discover_folder(folder: Path) -> "tuple[Path, list[RaceSpec]]":
         extra = [RaceSpec(gpx=g) for g in sorted(folder.glob("*.gpx")) if g.resolve() not in listed]
         return out_dir, races + extra
     return folder / "build", [RaceSpec(gpx=g) for g in sorted(folder.glob("*.gpx"))]
+
+
+def plan(source: Path) -> "tuple[Path, list[RaceSpec]]":
+    """Work out what to render from ``source`` — a manifest ``.json``, a folder of
+    ``.gpx``, or a single ``.gpx`` — returning ``(output_dir, races)``."""
+    if not source.exists():
+        raise FileNotFoundError(f"no such file or folder: {source}")
+    if source.is_dir():
+        return discover_folder(source)
+    if source.suffix.lower() == ".gpx":
+        return source.parent / "build", [RaceSpec(gpx=source)]
+    return load_manifest(source)
 
 
 # ── Rendering ─────────────────────────────────────────────────────────────────
@@ -291,8 +302,6 @@ def _rasterize(svg_path: Path, scale: float) -> "Path | None":
         return None
 
 
-# ── Reporting & CLI ───────────────────────────────────────────────────────────
-
 def _report(result: Result, cwd: Path) -> None:
     print(result.name)
     m = result.metrics
@@ -307,53 +316,40 @@ def _report(result: Result, cwd: Path) -> None:
         print(f"  → {shown}")
 
 
-def main(argv: "list[str] | None" = None) -> int:
-    parser = argparse.ArgumentParser(
-        prog="generate_roadbook",
-        description="Generate stage-profile + stage-map SVG posters for a set of races.",
-    )
-    parser.add_argument("source", help="A manifest .json, or a folder of .gpx files")
-    parser.add_argument("-o", "--out", help="Override the output directory")
-    parser.add_argument("--no-png", action="store_true", help="Write SVG only (skip PNG rasterisation)")
-    parser.add_argument("--scale", type=float, default=2.0, metavar="N", help="PNG scale factor (default 2×)")
-    args = parser.parse_args(argv)
+def _png_scale(scale: float) -> "float | None":
+    """The PNG scale to use, or ``None`` (with a warning) when rsvg-convert is missing."""
+    if shutil.which("rsvg-convert"):
+        return scale
+    print("stage-profiler: warning: rsvg-convert not found — writing SVG only "
+          "(install it with `brew install librsvg` for PNG output).", file=sys.stderr)
+    return None
 
-    source = Path(args.source)
-    if not source.exists():
-        print(f"generate_roadbook: error: no such file or folder: {source}", file=sys.stderr)
-        return 2
 
-    try:
-        if source.is_dir():
-            out_dir, races = discover_folder(source)
-        else:
-            out_dir, races = load_manifest(source)
-    except (ValueError, OSError, TypeError) as exc:
-        print(f"generate_roadbook: error: {exc}", file=sys.stderr)
-        return 2
-    if args.out:
-        out_dir = Path(args.out)
+def generate(source: "str | Path", *, out: "str | Path | None" = None,
+             png: bool = True, scale: float = 2.0) -> int:
+    """Render every race described by ``source`` into on-brand SVG (and PNG) posters.
 
+    ``source`` is a manifest ``.json``, a folder of ``.gpx`` files, or a single ``.gpx``.
+    ``out`` overrides the output directory; ``png`` toggles PNG rasterisation; ``scale`` is
+    the PNG resolution factor. Returns ``0`` on success, ``1`` if any race failed or nothing
+    was found. Raises ``ValueError`` / ``OSError`` for an unreadable source or manifest.
+    """
+    out_dir, races = plan(Path(source))
+    if out is not None:
+        out_dir = Path(out)
     if not races:
-        print("generate_roadbook: nothing to render (no races found).", file=sys.stderr)
+        print("stage-profiler: nothing to render (no races found).", file=sys.stderr)
         return 1
 
-    scale: "float | None" = None
-    if not args.no_png:
-        if shutil.which("rsvg-convert"):
-            scale = args.scale
-        else:
-            print("generate_roadbook: warning: rsvg-convert not found — writing SVG only "
-                  "(install it with `brew install librsvg` for PNG output).", file=sys.stderr)
-
+    scale_factor = _png_scale(scale) if png else None
     cwd = Path.cwd()
     stems = _unique_stems(races)
     failures = 0
     for race, stem in zip(races, stems):
         try:
             result = render_race(race, out_dir, stem)
-            if scale is not None:
-                result.files += [p for svg in list(result.files) if (p := _rasterize(svg, scale))]
+            if scale_factor is not None:
+                result.files += [p for svg in list(result.files) if (p := _rasterize(svg, scale_factor))]
             _report(result, cwd)
         except Exception as exc:  # keep going — one bad race shouldn't sink the batch
             failures += 1
@@ -362,7 +358,3 @@ def main(argv: "list[str] | None" = None) -> int:
     rendered = len(races) - failures
     print(f"\n{rendered}/{len(races)} race(s) → {out_dir}")
     return 1 if failures else 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main(sys.argv[1:]))

@@ -9,14 +9,13 @@ dist/
 .pytest_cache/
 .mypy_cache/
 
-# Local route data / scratch (the bundled sample.gpx is kept)
+# Route data — only the bundled example stages (examples/) are tracked;
+# keep your own routes and manifests in local/ (ignored).
 *.gpx
-!sample.gpx
+!examples/*.gpx
+local/
 misc/
 *-backup.json
-
-# Generated example output
-examples/out/
 
 # Editor / OS
 .DS_Store

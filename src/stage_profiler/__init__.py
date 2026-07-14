@@ -40,6 +40,7 @@ from .gpx import Point, extract_name, parse_gpx
 from .map import Marker, StageMap, render_map_svg
 from .profile import Climb, StageProfile, prettify_name
 from .render import render_profile_svg
+from .roadbook import MapSpec, RaceSpec, generate, load_manifest, render_race
 from .steepness import Band, steepness_bands
 
 __version__ = "0.2.0"
@@ -50,6 +51,11 @@ __all__ = [
     "prettify_name",
     "StageMap",
     "Marker",
+    "generate",
+    "load_manifest",
+    "render_race",
+    "RaceSpec",
+    "MapSpec",
     "render_profile_svg",
     "render_map_svg",
     "steepness_bands",

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "stage-profiler"
 version = "0.2.0"
-description = "A roadbook toolkit: turn a GPX route into a segmented steepness-band stage-profile SVG and a country GeoJSON into a stage-map SVG, in one baked-in design."
+description = "A roadbook generator: render a JSON manifest of races into on-brand stage-profile and stage-map SVG/PNG posters, in one baked-in design."
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }

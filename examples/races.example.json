@@ -1,0 +1,44 @@
+{
+  "output_dir": "build",
+  "races": [
+    {
+      "gpx": "stage-1-parcours.gpx",
+      "name": "Barcelona - Barcelona",
+      "start_town": "Barcelona",
+      "finish_town": "Barcelona",
+      "sprints": [],
+      "length_km": 19.6,
+      "climbs": [
+        { "name": "Côte de Monjuic", "km": 17 }
+      ]
+    },
+    {
+      "gpx": "stage-4-parcours.gpx",
+      "name": "Carcassonne — Foix",
+      "start_town": "Carcassonne",
+      "finish_town": "Foix",
+      "sprints": [93.4],
+      "length_km": 181.9,
+      "climbs": [
+        { "name": "Col de Bedos", "km": 48.2, "category": "4" },
+        { "name": "Col de Paradis", "km": 64.9, "category": "3" },
+        { "name": "Col de Coudons", "km": 104.9, "category": "2" },
+        { "name": "Col de Montsegur", "km": 146.7, "category": "1" }
+      ]
+    },
+    {
+      "gpx": "stage-15-parcours.gpx",
+      "name": "Champagnole - Plateau de Solaison",
+      "start_town": "Champagnole",
+      "finish_town": "Plateau de Solaison",
+      "sprints": [17.3],
+      "length_km": 183.9,
+      "climbs": [
+        { "name": "Côte des Rousses", "km": 36.8, "category": "3" },
+        { "name": "Le Salève \nCol de la Croisette", "km": 136, "category": "1", "offset": -20 },
+        { "name": "Côte du Mont", "km": 146, "category": "3", "offset": 15 },
+        { "name": "Plateau de \nSolaison Brison", "km": 183.9, "category": "HC" }
+      ]
+    }
+  ]
+}
