@@ -81,7 +81,7 @@ manifest file**. Only `gpx` is required, everything else is optional roadbook da
       "length_km": 181.9,
       "climbs": [
         { "name": "Col de Coudons", "km": 104.9, "category": "2" },
-        { "name": "Col de Montségur", "km": 146.7, "category": "1", "offset": -30 }
+        { "name": "Col de Montségur", "km": 146.7, "category": "1", "x_offset": -30 }
       ],
       "map": {
         "geojson": "fra.geojson",
@@ -104,12 +104,15 @@ Per race:
 - **`length_km`** — clip a route that's longer than the real stage (a neutral start zone or
   GPS overrun): the tail is dropped, that point becomes the drawn finish, and the metrics
   are recomputed for the shortened stage.
-- **`climbs`** — named climbs, each `{ "name", "km", "category"?, "offset"? }`. `km` is the
-  summit's distance along the route; `category` is the UCI badge (`"HC"`, `"1"`–`"4"`; omit
-  for an uncategorised climb). A name may contain `\n` to wrap onto two stacked lines.
-  `offset` nudges just the **label** left (`-`) / right (`+`) in canvas units while its rule
-  stays on the summit — use it to pull apart labels that would overlap. A climb topping out
-  at the finish is drawn as a **mountaintop finish**: its badge sits under the finish flag.
+- **`climbs`** — named climbs, each
+  `{ "name", "km", "category"?, "x_offset"?, "y_offset"? }`. `km` is the summit's distance
+  along the route; `category` is the UCI badge (`"HC"`, `"1"`–`"4"`; omit for an
+  uncategorised climb). A name may contain `\n` to wrap onto two stacked lines. `x_offset`
+  nudges just the **label** left (`-`) / right (`+`) in canvas units
+  while its rule stays on the summit — use it to pull apart labels that would overlap.
+  `y_offset` nudges the label up (`+`) / down (`-`) from the height chosen automatically,
+  with its rule stretching to follow. A climb topping out at the finish is drawn as a
+  **mountaintop finish**: its badge sits under the finish flag.
 - **`map`** *(omit for a profile-only race)* — `{ "geojson", "start"?, "end"? }`, where
   `start` / `end` are `[lon, lat]` and both fall back to the GPX endpoints.
 

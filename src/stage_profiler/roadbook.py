@@ -27,8 +27,9 @@ Manifest format (paths resolve relative to the manifest file)::
           "length_km": 172,                     # optional — clip the route here (drawn finish)
           "climbs": [                           # named climbs, labelled over their summit km
             { "name": "Port de Lers", "km": 118, "category": "1" },
-            # optional "offset" nudges the label sideways (canvas units) to avoid overlaps
-            { "name": "Mur de Péguère", "km": 147, "category": "2", "offset": -30 }
+            # optional "x_offset" / "y_offset" nudge the label sideways / up (canvas units)
+            { "name": "Mur de Péguère", "km": 147, "category": "2", "x_offset": -30,
+              "y_offset": 6 }
           ],
           "map": {                              # optional — omit for a profile-only race
             "geojson": "fra.geojson",
@@ -126,17 +127,21 @@ def _coord(value: object) -> "LonLat | None":
 
 
 def _climbs(value: object, gpx: str) -> "tuple[Climb, ...]":
-    """Validate a manifest ``climbs`` list of ``{name, km[, category][, offset]}`` entries."""
+    """Validate a manifest ``climbs`` list of
+    ``{name, km[, category][, x_offset][, y_offset]}`` entries."""
     climbs: "list[Climb]" = []
     for entry in value or []:
         if not (isinstance(entry, dict) and "name" in entry and "km" in entry):
             raise ValueError(f"{gpx}: each climb needs 'name' and 'km', got {entry!r}")
-        offset = entry.get("offset", 0)
-        if isinstance(offset, bool) or not isinstance(offset, (int, float)):
-            raise ValueError(f"{gpx}: climb 'offset' must be a number, got {offset!r}")
+        nudges = {}
+        for key in ("x_offset", "y_offset"):
+            nudge = entry.get(key, 0)
+            if isinstance(nudge, bool) or not isinstance(nudge, (int, float)):
+                raise ValueError(f"{gpx}: climb {key!r} must be a number, got {nudge!r}")
+            nudges[key] = float(nudge)
         try:
             climbs.append(Climb(str(entry["name"]), float(entry["km"]),
-                                str(entry.get("category", "")).upper(), float(offset)))
+                                str(entry.get("category", "")).upper(), **nudges))
         except ValueError as exc:
             raise ValueError(f"{gpx}: {exc}") from exc
     return tuple(climbs)

@@ -206,11 +206,11 @@ def test_invalid_climb_category_raises():
         Climb("Mortirolo", 55, "5")
 
 
-def test_climb_offset_shifts_label_but_not_leader():
-    # offset nudges the label horizontally; the location rule stays on the summit.
-    def label_and_leader(offset):
+def test_climb_x_offset_shifts_label_but_not_leader():
+    # x_offset nudges the label horizontally; the location rule stays on the summit.
+    def label_and_leader(x_offset):
         svg = StageProfile.from_gpx(
-            SIMPLE_GPX, climbs=[Climb("Mortirolo", 0.15, "2", offset)],
+            SIMPLE_GPX, climbs=[Climb("Mortirolo", 0.15, "2", x_offset)],
         ).render()
         leader = float(re.search(r'class="sp-leader" x1="([0-9.]+)"', svg).group(1))
         label = float(re.search(r'<text x="([0-9.]+)"[^>]*class="sp-climb"', svg).group(1))
@@ -219,7 +219,24 @@ def test_climb_offset_shifts_label_but_not_leader():
     label0, leader0 = label_and_leader(0)
     label40, leader40 = label_and_leader(40)
     assert leader40 == leader0                       # the leader rule does not move
-    assert label40 == pytest.approx(label0 + 40)     # the label shifts right by the offset
+    assert label40 == pytest.approx(label0 + 40)     # the label shifts right by the x_offset
+
+
+def test_climb_y_offset_raises_label_and_shortens_its_leader():
+    # y_offset lifts the label off the height picked automatically; the rule under it runs
+    # from the label down to the same baseline, so it grows to follow.
+    def label_and_leader(y_offset):
+        svg = StageProfile.from_gpx(
+            SIMPLE_GPX, climbs=[Climb("Mortirolo", 0.15, "2", y_offset=y_offset)],
+        ).render()
+        leader = re.search(r'class="sp-leader" x1="[0-9.]+" y1="([0-9.]+)"', svg)
+        label = re.search(r'<text x="[0-9.]+" y="([0-9.]+)"[^>]*class="sp-climb"', svg)
+        return float(label.group(1)), float(leader.group(1))
+
+    label0, leader0 = label_and_leader(0)
+    label12, leader12 = label_and_leader(12)
+    assert label12 == pytest.approx(label0 - 12)    # +y_offset raises the label (SVG y is down)
+    assert leader12 == pytest.approx(leader0 - 12)  # its rule tops out with it, running longer
 
 
 def test_summit_finish_moves_badge_to_the_finish_corner():

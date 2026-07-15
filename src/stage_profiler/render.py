@@ -81,7 +81,8 @@ _SCALE_DY = 16.0      # scale-numeral baseline, below BASE_Y (shares the row wit
 _TOWN_DY = 16.0       # town baseline, below BASE_Y
 _ELE_DY = 29.0        # elevation baseline, below BASE_Y
 
-Climb = Tuple[str, float, str, float]  # (name, summit_km, category "HC"|"1".."4"|"", label_offset)
+# (name, summit_km, category "HC"|"1".."4"|"", label_x_offset, label_y_offset)
+Climb = Tuple[str, float, str, float, float]
 
 
 def render_profile_svg(
@@ -237,18 +238,21 @@ def _climb_marks(climbs: "Sequence[Climb]", ds: "list[float]", es: "list[float]"
     """Resolve climb labels: summit position, edge-clamped text centre, and a single
     de-collision pass that lifts a label overlapping its left neighbour."""
     marks: "list[_Mark]" = []
-    for name, km, category, offset in climbs:
+    for name, km, category, x_offset, y_offset in climbs:
         d = max(0.0, min(float(km) * 1000.0, total))
         ele = ele_at(ds, es, d)
         px = x(d)
-        # The label centre is the summit x plus the per-climb offset (to pull overlapping
+        # The label centre is the summit x plus the per-climb x_offset (to pull overlapping
         # labels apart); the leader rule stays at ``px``. Keep the whole centred label
         # on-canvas: inset by half its widest line, never less than the base edge pad.
         widest = max(len(ln) for ln in _name_lines(name))
         half_w = max(_CLIMB_EDGE_PAD, widest * _CLIMB_CHAR_W)
         lo, hi = PAD_X + half_w, WIDTH - PAD_X - half_w
-        cx = (lo + hi) / 2 if lo > hi else min(max(px + offset, lo), hi)
-        peak_y = y(ele)
+        cx = (lo + hi) / 2 if lo > hi else min(max(px + x_offset, lo), hi)
+        # ``y_offset`` rides on top of the automatic rise above the summit (+ up, - down); it
+        # is applied before the de-collision pass so a hand-tuned label reads as already
+        # separated and doesn't get lifted a second time.
+        peak_y = y(ele) - y_offset
         marks.append(_Mark(str(name), str(category), ele, px, cx,
                            peak_y - _CLIMB_NAME_RISE, peak_y - _CLIMB_META_RISE))
     marks.sort(key=lambda m: m.px)

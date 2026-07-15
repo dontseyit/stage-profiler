@@ -35,8 +35,8 @@
       "length_km": 183.9,
       "climbs": [
         { "name": "Côte des Rousses", "km": 36.8, "category": "3" },
-        { "name": "Le Salève \nCol de la Croisette", "km": 136, "category": "1", "offset": -20 },
-        { "name": "Côte du Mont", "km": 146, "category": "3", "offset": 15 },
+        { "name": "Le Salève \nCol de la Croisette", "km": 136, "category": "1", "x_offset": -20 },
+        { "name": "Côte du Mont", "km": 146, "category": "3", "x_offset": 15 },
         { "name": "Plateau de \nSolaison Brison", "km": 183.9, "category": "HC" }
       ]
     }
