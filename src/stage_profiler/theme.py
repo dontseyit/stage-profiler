@@ -32,7 +32,7 @@ FONT_STACK = "'Jost',sans-serif"
 
 # ── Ink & paper ───────────────────────────────────────────────────────────────
 PAPER = "#FAFAF8"      # light land / paper tone
-BACKGROUND = "#E6E4DD"  # the warm ground both visuals are drawn on
+BACKGROUND = "#FFFFFF"  # the warm ground both visuals are drawn on
 INK = "#1A1917"        # elevation line, primary labels
 INK_MUTE = "#4B4840"   # elevations, secondary labels
 

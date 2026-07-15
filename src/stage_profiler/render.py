@@ -360,7 +360,7 @@ def _finish_badge(x_edge: float, category: str, *, direction: int) -> str:
     badge_w = 20.0 if category == "HC" else 13.0
     flag_w = 16.0
     flag_center = x_edge - flag_w / 2 if direction < 0 else x_edge + flag_w / 2
-    bx = flag_center - badge_w / 2
+    bx = flag_center - badge_w / 2 + direction * 2.0   # nudge off the corner's border rule
     by = _FLAG_Y + flag_w + 5.0   # below the flag (flag runs _FLAG_Y … _FLAG_Y + flag_w)
     return (
         f'<rect class="sp-cat" x="{bx:.1f}" y="{by:.1f}" width="{_num(badge_w)}" '
